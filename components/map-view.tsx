@@ -22,6 +22,7 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
   const markersRef = useRef<import("maplibre-gl").Marker[]>([]);
   const userMarkerRef = useRef<import("maplibre-gl").Marker | null>(null);
+  const centerTimerRef = useRef<number | undefined>(undefined);
   const currentPositionRef = useRef<[number, number] | null>(null);
   const onSelectRef = useRef(onSelect);
   const onVisibleStoresChangeRef = useRef(onVisibleStoresChange);
@@ -63,7 +64,7 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
         setLocationState("visible");
       }, () => { setLocationState("denied"); onCurrentLocationChangeRef.current?.(null); }, { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 });
     });
-    return () => { disposed = true; saveMapView?.(); if (saveMapView) { window.removeEventListener("pagehide", saveMapView); window.removeEventListener("beforeunload", saveMapView); } if (watchId !== undefined) navigator.geolocation.clearWatch(watchId); userMarkerRef.current?.remove(); userMarkerRef.current = null; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; mapRef.current?.remove(); mapRef.current = null; };
+    return () => { disposed = true; saveMapView?.(); if (saveMapView) { window.removeEventListener("pagehide", saveMapView); window.removeEventListener("beforeunload", saveMapView); } if (watchId !== undefined) navigator.geolocation.clearWatch(watchId); if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); userMarkerRef.current?.remove(); userMarkerRef.current = null; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; mapRef.current?.remove(); mapRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -72,7 +73,7 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
     if (visibleStoreIds.length > 50) return;
     const visibleSet = new Set(visibleStoreIds);
     const storesWithPins = stores.filter((store) => visibleSet.has(store.id));
-    void import("maplibre-gl").then((maplibre) => { if (!mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const reported=store.reportCount>0; const storeName = formatStoreName(store); element.type = "button"; element.dataset.storeId = store.id; element.className = "map-pin"; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.setAttribute("aria-label", `${storeName}、${store.type}、${reported?"在庫あり報告":"情報なし"}`); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => onSelectRef.current(store.id); return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
+    void import("maplibre-gl").then((maplibre) => { if (!mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const reported=store.reportCount>0; const storeName = formatStoreName(store); element.type = "button"; element.dataset.storeId = store.id; element.className = "map-pin"; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.setAttribute("aria-label", `${storeName}、${store.type}、${reported?"在庫あり報告":"情報なし"}`); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => { onSelectRef.current(store.id); if (!window.matchMedia("(max-width: 700px)").matches) return; if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); centerTimerRef.current = window.setTimeout(() => { const map = mapRef.current; if (!map) return; const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; map.stop(); map.easeTo({ center: [store.longitude, store.latitude], duration: reduceMotion ? 0 : 650 }); }, 80); }; return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
   }, [mapReady, stores, visibleStoreIds]);
 
   useEffect(() => {
@@ -97,18 +98,6 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
       map.off("idle", updateVisibleStoreCount);
     };
   }, [mapReady, stores]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    const store = stores.find((candidate) => candidate.id === selected);
-    if (!mapReady || !map || !store || !window.matchMedia("(max-width: 700px)").matches) return;
-    const frame = window.requestAnimationFrame(() => {
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      map.stop();
-      map.easeTo({ center: [store.longitude, store.latitude], duration: reduceMotion ? 0 : 650 });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [mapReady, selected, stores]);
 
   useEffect(() => { container.current?.querySelectorAll<HTMLElement>(".map-pin").forEach((pin) => { const active = pin.dataset.storeId === selected; pin.classList.toggle("active", active); pin.style.zIndex=active?"1000":"1"; }); }, [selected, visibleStoreIds]);
   function centerCurrentLocation() { const position = currentPositionRef.current; if (position) mapRef.current?.easeTo({ center: position, zoom: 15, duration: 700 }); }
