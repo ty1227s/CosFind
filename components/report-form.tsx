@@ -8,6 +8,7 @@ import { catalogRepository, usesSupabaseCatalog } from "@/lib/data";
 import { formatStoreName } from "@/lib/store-name";
 import { formatVariantName } from "@/lib/variant-name";
 import { useSearchParams } from "next/navigation";
+import { BarcodeScanner } from "./barcode-scanner";
 
 type Phase = "editing" | "saving" | "done" | "error";
 
@@ -67,6 +68,8 @@ export function ReportForm() {
     setProductId(first?.id || ""); setVariantId(first?.variants[0]?.id || "");
   }
 
+  function selectByJan(janCode:string){const normalized=janCode.replace(/\D/g,"");const direct=products.find(item=>item.janCode.replace(/\D/g,"")===normalized);const variantMatch=products.flatMap(item=>item.variants.map(variant=>({item,variant}))).find(({variant})=>variant.janCode.replace(/\D/g,"")===normalized);const matched=variantMatch?.item??direct;if(!matched)return{found:false,message:`JAN ${normalized} に一致する登録商品が見つかりません。`};setBrandFilter(matched.brand);setCategoryFilter(matched.category);setProductId(matched.id);setVariantId(variantMatch?.variant.id||"");return{found:true,message:variantMatch?`${matched.brand}「${matched.name}」の${formatVariantName(variantMatch.variant)}を選択しました。`:`${matched.brand}「${matched.name}」を選択しました。`};}
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setPhase("saving");
     try {
@@ -78,11 +81,11 @@ export function ReportForm() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "送信できませんでした。"); setPhase("error"); }
   }
 
-  return <><SiteHeader/><main className="form-page"><section><p className="eyebrow">10〜20秒で完了</p><h1>在庫ありを報告</h1><p>商品・カラー・店舗を選ぶだけです。投稿者情報は一般公開されません。</p>{phase === "done" ? <div className="success"><b>✓</b><h2>情報提供ありがとうございます</h2></div> : <form onSubmit={submit}>{lockedStore&&<div className="locked-store"><small>在庫状況を投稿する店舗</small><strong>{formatStoreName(lockedStore)}</strong><span>{lockedStore.address}</span><input type="hidden" name="storeId" value={lockedStore.id}/></div>}<div className="form-grid">
+  return <><SiteHeader/><main className="form-page"><section><p className="eyebrow">10〜20秒で完了</p><h1>在庫ありを報告</h1><p>商品・カラー・店舗を選ぶだけです。投稿者情報は一般公開されません。</p>{phase === "done" ? <div className="success"><b>✓</b><h2>情報提供ありがとうございます</h2></div> : <form onSubmit={submit}>{lockedStore&&<div className="locked-store"><small>在庫状況を投稿する店舗</small><strong>{formatStoreName(lockedStore)}</strong><span>{lockedStore.address}</span><input type="hidden" name="storeId" value={lockedStore.id}/></div>}<BarcodeScanner onDetected={selectByJan}/><div className="form-grid">
     <label className="field"><span>1. ブランドで絞り込み</span><select value={brandFilter} onChange={(event) => { const brand=event.target.value;setBrandFilter(brand);setCategoryFilter("");selectFirstProduct(brand,""); }}><option value="">すべてのブランド</option>{brands.map((brand)=><option key={brand} value={brand}>{brand}</option>)}</select></label>
     <label className="field"><span>2. 商品ジャンルで絞り込み</span><select value={categoryFilter} onChange={(event) => { const category=event.target.value;setCategoryFilter(category);selectFirstProduct(brandFilter,category); }}><option value="">すべての商品ジャンル</option>{categories.map((category)=><option key={category} value={category}>{category}</option>)}</select></label>
     <label className="field"><span>3. 商品</span><select value={productId} required onChange={(event) => { const id = event.target.value; setProductId(id); setVariantId(products.find((item) => item.id === id)?.variants[0]?.id || ""); }}>{filteredProducts.map((item) => <option value={item.id} key={item.id}>{item.brand} / {item.name}</option>)}</select>{filteredProducts.length===0&&<small>条件に一致する商品がありません</small>}</label>
-    <label className="field"><span>4. カラー / 色番</span><select value={variantId} onChange={(event) => setVariantId(event.target.value)}>{product?.variants.map((variant) => <option value={variant.id} key={variant.id}>{formatVariantName(variant)}</option>)}</select></label>
+    <label className="field"><span>4. カラー / 色番</span><select value={variantId} onChange={(event) => setVariantId(event.target.value)}><option value="">カラー指定なし</option>{product?.variants.map((variant) => <option value={variant.id} key={variant.id}>{formatVariantName(variant)}</option>)}</select></label>
     {!lockedStore&&<label className="field"><span>5. 店舗</span><select value={storeId} required onChange={(event) => setStoreId(event.target.value)}>{stores.map((store) => <option value={store.id} key={store.id}>{formatStoreName(store)}</option>)}</select></label>}
     <label className="field"><span>6. 在庫状況</span><span className="choice selected-choice">✓ 在庫あり</span></label>
     <label className="field"><span>7. 確認方法</span><select value={method} onChange={(event) => setMethod(event.target.value)}><option value="store_visit">店頭で確認</option><option value="staff_confirmation">店員に確認</option><option value="phone">電話で確認</option><option value="official_information">公式情報</option></select></label>

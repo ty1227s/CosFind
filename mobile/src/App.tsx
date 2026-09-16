@@ -5,11 +5,13 @@ import { getCurrentLocation, type CosFindPosition } from "./lib/location";
 import { supabase } from "./lib/supabase";
 import { getStoreTypeColor } from "../../lib/store-type-color";
 import { getStoreTypeCode } from "../../lib/store-type-code";
+import { BarcodeScanner } from "./components/BarcodeScanner";
+import "./barcode.css";
 
 type Tab = "search" | "map" | "report" | "profile";
 type Brand = { id: string; name: string };
 type Product = { id: string; brand_id: string; name: string; category: string; jan_code: string | null };
-type Variant = { id: string; product_id: string; variant_name: string; color_code: string | null };
+type Variant = { id: string; product_id: string; variant_name: string; color_code: string | null; jan_code:string|null };
 type Store = { id: string; name: string; chain_name: string | null; store_type: string; address: string; latitude: number; longitude: number };
 type Summary = { product_id: string; store_id: string; last_reported_at: string; confirmed_variants: string[] | null; report_count: number };
 
@@ -41,7 +43,7 @@ export function App() {
     void Promise.all([
       supabase.from("brands").select("id,name").order("name"),
       supabase.from("products").select("id,brand_id,name,category,jan_code").eq("is_active", true).order("name"),
-      supabase.from("product_variants").select("id,product_id,variant_name,color_code").order("variant_name"),
+      supabase.from("product_variants").select("id,product_id,variant_name,color_code,jan_code").order("variant_name"),
       supabase.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("is_active", true).order("name"),
       supabase.from("public_stock_summaries").select("product_id,store_id,last_reported_at,confirmed_variants,report_count")
     ]).then(([b, p, v, s, r]) => {
@@ -113,9 +115,10 @@ function MapScreen({ product, stores, reportByStore, location, onLocate, onBack 
 
 function ReportScreen({ session, products, variants, stores, brandById }: { session: Session | null; products: Product[]; variants: Variant[]; stores: Store[]; brandById: Map<string, string> }) {
   const [productId, setProductId] = useState(""), [variantId, setVariantId] = useState(""), [storeId, setStoreId] = useState(""), [method, setMethod] = useState("store_visit"), [comment, setComment] = useState(""), [message, setMessage] = useState("");
+  function selectByJan(jan:string){const normalized=jan.replace(/\D/g,"");const variant=variants.find(item=>(item.jan_code??"").replace(/\D/g,"")===normalized);const product=variant?products.find(item=>item.id===variant.product_id):products.find(item=>(item.jan_code??"").replace(/\D/g,"")===normalized);if(!product)return{found:false,message:`JAN ${normalized} に一致する登録商品が見つかりません。`};setProductId(product.id);setVariantId(variant?.id??"");return{found:true,message:`${brandById.get(product.brand_id)??""}「${product.name}」を選択しました。`};}
   async function submit(event: FormEvent) { event.preventDefault(); if (!session) return; setMessage("送信中…"); const { error } = await supabase.from("stock_reports").insert({ product_id: productId, product_variant_id: variantId || null, store_id: storeId, user_id: session.user.id, status: "available", confirmation_method: method, comment: comment.trim() || null, reported_at: new Date().toISOString() }); setMessage(error ? error.message : "情報提供ありがとうございます"); if (!error) setComment(""); }
   if (!session) return <section className="screen"><div className="screen-intro"><small>STOCK REPORT</small><h1>在庫を報告</h1></div><div className="empty-card">投稿にはログインが必要です。<span>プロフィール画面からログインしてください。</span></div></section>;
-  return <section className="screen"><div className="screen-intro"><small>STOCK REPORT</small><h1>在庫を報告</h1><p>商品・カラー・店舗を選ぶだけで投稿できます。</p></div><form className="mobile-form" onSubmit={(e) => void submit(e)}><label>商品<select required value={productId} onChange={(e) => { setProductId(e.target.value); setVariantId(""); }}><option value="">商品を選択</option>{products.map((p) => <option key={p.id} value={p.id}>{brandById.get(p.brand_id)} {p.name}</option>)}</select></label><label>カラー<select value={variantId} onChange={(e) => setVariantId(e.target.value)}><option value="">カラー指定なし</option>{variants.filter((v) => v.product_id === productId).map((v) => <option key={v.id} value={v.id}>{v.color_code ? `${v.color_code} ` : ""}{v.variant_name}</option>)}</select></label><label>店舗<select required value={storeId} onChange={(e) => setStoreId(e.target.value)}><option value="">店舗を選択</option>{stores.map((s) => <option key={s.id} value={s.id}>{storeName(s)}</option>)}</select></label><label>確認方法<select value={method} onChange={(e) => setMethod(e.target.value)}><option value="store_visit">店頭で確認</option><option value="staff_confirmation">スタッフに確認</option><option value="phone">電話で確認</option><option value="official_information">公式情報</option></select></label><label>任意コメント<textarea maxLength={200} value={comment} onChange={(e) => setComment(e.target.value)}/></label><button className="primary" type="submit">在庫ありを報告</button>{message && <p className="form-message">{message}</p>}</form></section>;
+  return <section className="screen"><div className="screen-intro"><small>STOCK REPORT</small><h1>在庫を報告</h1><p>商品・カラー・店舗を選ぶだけで投稿できます。</p></div><form className="mobile-form" onSubmit={(e) => void submit(e)}><BarcodeScanner onDetected={selectByJan}/><label>商品<select required value={productId} onChange={(e) => { setProductId(e.target.value); setVariantId(""); }}><option value="">商品を選択</option>{products.map((p) => <option key={p.id} value={p.id}>{brandById.get(p.brand_id)} {p.name}</option>)}</select></label><label>カラー<select value={variantId} onChange={(e) => setVariantId(e.target.value)}><option value="">カラー指定なし</option>{variants.filter((v) => v.product_id === productId).map((v) => <option key={v.id} value={v.id}>{v.color_code ? `${v.color_code} ` : ""}{v.variant_name}</option>)}</select></label><label>店舗<select required value={storeId} onChange={(e) => setStoreId(e.target.value)}><option value="">店舗を選択</option>{stores.map((s) => <option key={s.id} value={s.id}>{storeName(s)}</option>)}</select></label><label>確認方法<select value={method} onChange={(e) => setMethod(e.target.value)}><option value="store_visit">店頭で確認</option><option value="staff_confirmation">スタッフに確認</option><option value="phone">電話で確認</option><option value="official_information">公式情報</option></select></label><label>任意コメント<textarea maxLength={200} value={comment} onChange={(e) => setComment(e.target.value)}/></label><button className="primary" type="submit">在庫ありを報告</button>{message && <p className="form-message">{message}</p>}</form></section>;
 }
 
 function ProfileScreen({ session }: { session: Session | null }) {
