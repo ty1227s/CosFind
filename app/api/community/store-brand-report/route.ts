@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, getUserPoints } from "@/lib/server/current-user";
 import { clientAddress, consumeRateLimit, isSameOrigin } from "@/lib/server/security";
+import { operatingPeriodQuery } from "@/lib/store-operating-period";
 
 const METHODS = new Set(["store_visit", "staff_confirmation", "phone", "official_information"]);
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const db = createSupabaseAdminClient();
   const [profile, store, brand] = await Promise.all([
     db.from("profiles").select("status,posting_suspended").eq("id", user.id).maybeSingle(),
-    db.from("stores").select("id").eq("id", body.storeId).eq("is_active", true).maybeSingle(),
+    operatingPeriodQuery(db.from("stores").select("id").eq("id", body.storeId).eq("is_active", true)).maybeSingle(),
     db.from("brands").select("id,name").eq("id", body.brandId).maybeSingle(),
   ]);
   if (profile.error || profile.data?.status !== "active" || profile.data.posting_suspended) return NextResponse.json({ error: "現在このアカウントから投稿できません" }, { status: 403 });

@@ -2,14 +2,19 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { clientAddress, consumeRateLimit } from "@/lib/server/security";
 import { UUID_PATTERN } from "@/lib/server/validation";
+import { operatingPeriodQuery } from "@/lib/store-operating-period";
 
 export async function GET(request: Request) {
   const rate = await consumeRateLimit(`store-metadata:${clientAddress(request)}`, 120, 60_000);
   if (!rate.allowed) return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429, headers: { "Retry-After": String(rate.retryAfter) } });
   const ids = new URL(request.url).searchParams.get("ids")?.split(",").filter((id) => UUID_PATTERN.test(id)).slice(0, 500) ?? [];
   if (!ids.length) return NextResponse.json({ stores: {} });
-  const requested = new Set(ids);
-  const result = await createSupabaseAdminClient().from("store_requests").select("payload,created_at").eq("status", "metadata").in("payload->>storeId", ids).order("created_at", { ascending: true });
+  const db=createSupabaseAdminClient();
+  const visibleResult=await operatingPeriodQuery(db.from("stores").select("id").in("id",ids).eq("is_active",true));
+  if(visibleResult.error)return NextResponse.json({error:"店舗情報を取得できませんでした"},{status:500});
+  const requested = new Set((visibleResult.data??[]).map(store=>store.id));
+  if(!requested.size)return NextResponse.json({stores:{}});
+  const result = await db.from("store_requests").select("payload,created_at").eq("status", "metadata").in("payload->>storeId", [...requested]).order("created_at", { ascending: true });
   if (result.error) return NextResponse.json({ error: "店舗付加情報を取得できませんでした" }, { status: 500 });
   const stores: Record<string, { businessHours: unknown; customName: boolean }> = {};
   for (const row of result.data ?? []) {

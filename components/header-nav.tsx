@@ -52,6 +52,7 @@ export function HeaderNav() {
       <Link href="/brands" onClick={() => setMenuOpen(false)}><span>Aa</span>ブランド検索</Link>
       <Link href="/" onClick={() => setMenuOpen(false)}><span>⌖</span>地図検索</Link>
       <Link href="/products/new" onClick={() => setMenuOpen(false)}><span>✦</span>新作コスメ情報</Link>
+      <Link href="/announcements" onClick={() => setMenuOpen(false)}><span>i</span>お知らせ</Link>
     </div>
     {drawer && <PwaInstallButton />}
     {session.authenticated && session.isAdmin && <Link href="/admin" className="report-link admin-link" onClick={() => setMenuOpen(false)}>⚙ 管理画面へ</Link>}

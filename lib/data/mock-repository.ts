@@ -1,2 +1,2 @@
-import type { CatalogRepository } from "./repository";import {products,stores} from "../mock-data";
-export const mockRepository:CatalogRepository={async searchProducts(q){const n=q.toLowerCase();return products.filter(p=>`${p.brand} ${p.name} ${p.janCode} ${p.variants.map(v=>`${v.name} ${v.janCode}`).join(" ")}`.toLowerCase().includes(n))},async getStoresForProduct(){return stores}};
+import type { CatalogRepository } from "./repository";import {products,stores} from "../mock-data";import {isStorePubliclyVisible} from "@/lib/store-operating-period";
+export const mockRepository:CatalogRepository={async searchProducts(q){const n=q.toLowerCase();return products.filter(p=>`${p.brand} ${p.name} ${p.janCode} ${p.variants.map(v=>`${v.name} ${v.janCode}`).join(" ")}`.toLowerCase().includes(n))},async getStoresForProduct(){return stores.filter(store=>isStorePubliclyVisible(store))}};

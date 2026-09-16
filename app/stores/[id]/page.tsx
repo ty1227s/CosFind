@@ -11,9 +11,10 @@ import { StoreBrandReportForm } from "@/components/store-brand-report-form";
 import { formatStoreHoursRange } from "@/lib/store-hours";
 import { getStoreTypeColor } from "@/lib/store-type-color";
 import { getStoreTypeCode } from "@/lib/store-type-code";
+import { isStorePubliclyVisible } from "@/lib/store-operating-period";
 
 export const dynamic = "force-dynamic";
-type Store = { id:string;name:string;chain:string;type:string;address:string;latitude:number;longitude:number;customName?:boolean };
+type Store = { id:string;name:string;chain:string;type:string;address:string;latitude:number;longitude:number;openingDate?:string;closingDate?:string;customName?:boolean };
 type ReportRow = { product_id:string;reported_at:string;products:{id:string;name:string;category:string;brands:{name:string}|{name:string}[]|null}|null };
 type MetadataPayload = { brandIds?:unknown;brandId?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown };
 const WEEKDAYS=[{key:"mon",label:"月"},{key:"tue",label:"火"},{key:"wed",label:"水"},{key:"thu",label:"木"},{key:"fri",label:"金"},{key:"sat",label:"土"},{key:"sun",label:"日"}];
@@ -21,12 +22,12 @@ const WEEKDAYS=[{key:"mon",label:"月"},{key:"tue",label:"火"},{key:"wed",label
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = createSupabaseAdminClient();
-  let storeResult = await db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("id", id).eq("is_active", true).maybeSingle();
-  for (let attempt=0;storeResult.error&&attempt<2;attempt+=1) { await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));storeResult=await db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("id",id).eq("is_active",true).maybeSingle(); }
+  let storeResult = await db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date").eq("id", id).eq("is_active", true).maybeSingle();
+  for (let attempt=0;storeResult.error&&attempt<2;attempt+=1) { await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));storeResult=await db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date").eq("id",id).eq("is_active",true).maybeSingle(); }
   if (storeResult.error) return <><SiteHeader/><main className="detail"><p className="eyebrow">STORE</p><h1>店舗情報を読み込めませんでした</h1><p className="lead">通信が一時的に不安定な可能性があります。少し待ってから、もう一度お試しください。</p><div className="detail-primary-actions"><Link className="detail-report-button" href={`/stores/${encodeURIComponent(id)}`}>再読み込み</Link><Link className="google-maps-link" href="/map">地図へ戻る</Link></div></main></>;
-  if (!storeResult.data) notFound();
+  if (!storeResult.data || !isStorePubliclyVisible({openingDate:storeResult.data.opening_date,closingDate:storeResult.data.closing_date})) notFound();
   const row=storeResult.data;
-  const store:Store={id:row.id,name:row.name,chain:row.chain_name??"",type:row.store_type,address:row.address,latitude:row.latitude,longitude:row.longitude};
+  const store:Store={id:row.id,name:row.name,chain:row.chain_name??"",type:row.store_type,address:row.address,latitude:row.latitude,longitude:row.longitude,openingDate:row.opening_date??undefined,closingDate:row.closing_date??undefined};
   const metadataResult=await db.from("store_requests").select("payload,created_at").eq("status","metadata").contains("payload",{storeId:id}).order("created_at",{ascending:false});
   const metadataPayloads=(metadataResult.data??[]).map(item=>item.payload as MetadataPayload);
   store.customName=metadataPayloads.find(payload=>typeof payload.customName==="boolean")?.customName===true;

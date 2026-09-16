@@ -6,11 +6,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatVariantName } from "@/lib/variant-name";
 import { formatStoreName } from "@/lib/store-name";
 import { ProductDetailMap, type ProductMapStore } from "@/components/product-detail-map";
+import { operatingPeriodQuery } from "@/lib/store-operating-period";
 
 export const dynamic = "force-dynamic";
 type ProductRow = { id: string; name: string; category: string; jan_code: string | null; spf:number|null; pa:string|null; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
 type ReportRow = { store_id: string; reported_at: string; stores: { id: string; name: string; chain_name: string | null; address: string } | null };
-type StoreRow = { id:string;name:string;chain_name:string|null;address:string;latitude:number;longitude:number };
+type StoreRow = { id:string;name:string;chain_name:string|null;address:string;latitude:number;longitude:number;opening_date:string|null;closing_date:string|null };
 type StoreMetadataRow = { payload: { storeId?:unknown; customName?:unknown } };
 type MapReportRow = { store_id:string;status:"available"|"low_stock"|"sold_out"|"unknown"|"discontinued";reported_at:string };
 
@@ -21,11 +22,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const product = productResult.data as unknown as ProductRow; const brand = Array.isArray(product.brands) ? product.brands[0]?.name ?? "" : product.brands?.name ?? "";
   const [reportsResult, allStoresResult, mapReportsResult, metadataResult] = await Promise.all([
     db.from("stock_reports").select("store_id,reported_at,stores(id,name,chain_name,address)").eq("product_id", id).eq("status", "available").order("reported_at", { ascending: false }).limit(50),
-    db.from("stores").select("id,name,chain_name,address,latitude,longitude").eq("is_active", true).order("name"),
+    operatingPeriodQuery(db.from("stores").select("id,name,chain_name,address,latitude,longitude,opening_date,closing_date").eq("is_active", true)).order("name"),
     db.from("stock_reports").select("store_id,status,reported_at").eq("product_id", id).order("reported_at", { ascending: false }).limit(10000),
     db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }),
   ]);
-  const seen = new Set<string>(); const stores = ((reportsResult.data ?? []) as unknown as ReportRow[]).filter((report) => report.stores && !seen.has(report.store_id) && seen.add(report.store_id));
+  const visibleStoreIds=new Set((allStoresResult.data??[]).map(store=>store.id));
+  const seen = new Set<string>(); const stores = ((reportsResult.data ?? []) as unknown as ReportRow[]).filter((report) => visibleStoreIds.has(report.store_id)&&report.stores && !seen.has(report.store_id) && seen.add(report.store_id));
   const latestByStore = new Map<string, MapReportRow>();
   for (const report of (mapReportsResult.data ?? []) as MapReportRow[]) if (!latestByStore.has(report.store_id)) latestByStore.set(report.store_id, report);
   const customNames = new Map<string, boolean>();

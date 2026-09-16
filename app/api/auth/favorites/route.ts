@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSameOrigin } from "@/lib/server/security";
+import { operatingPeriodQuery } from "@/lib/store-operating-period";
 
 export const dynamic = "force-dynamic";
 type Kind = "product" | "store";
@@ -17,7 +18,7 @@ export async function GET() {
   const productIds = idsFrom(user.user_metadata?.favorite_product_ids); const storeIds = idsFrom(user.user_metadata?.favorite_store_ids); const db = createSupabaseAdminClient();
   const [productsResult, storesResult] = await Promise.all([
     productIds.length ? db.from("products").select("id,name,brands(name)").in("id", productIds).eq("is_active", true) : Promise.resolve({ data: [], error: null }),
-    storeIds.length ? db.from("stores").select("id,name,chain_name,address").in("id", storeIds).eq("is_active", true) : Promise.resolve({ data: [], error: null }),
+    storeIds.length ? operatingPeriodQuery(db.from("stores").select("id,name,chain_name,address").in("id", storeIds).eq("is_active", true)) : Promise.resolve({ data: [], error: null }),
   ]);
   const metadataResult = storeIds.length ? await db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }) : { data: [], error: null };
   const error = productsResult.error || storesResult.error || metadataResult.error; if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -34,6 +35,7 @@ export async function PUT(request: Request) {
   const user = await currentUser(); if (!user) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
   const body = await request.json() as { kind?: Kind; id?: string }; if ((body.kind !== "product" && body.kind !== "store") || !body.id) return NextResponse.json({ error: "お気に入り対象が不正です" }, { status: 400 });
   const key = metadataKey(body.kind); const current = idsFrom(user.user_metadata?.[key]); const favorite = !current.includes(body.id);
+  if(favorite){const db=createSupabaseAdminClient();const target=body.kind==="store"?await operatingPeriodQuery(db.from("stores").select("id").eq("id",body.id).eq("is_active",true)).maybeSingle():await db.from("products").select("id").eq("id",body.id).eq("is_active",true).maybeSingle();if(target.error||!target.data)return NextResponse.json({error:"お気に入り対象が見つかりません"},{status:404});}
   if (favorite && current.length >= FAVORITE_LIMITS[body.kind]) return NextResponse.json({ error: body.kind === "product" ? "お気に入り商品は100件まで登録できます" : "お気に入り店舗は10件まで登録できます", limit: FAVORITE_LIMITS[body.kind] }, { status: 409 });
   const next = favorite ? [body.id, ...current] : current.filter((id) => id !== body.id);
   const db = createSupabaseAdminClient(); const { error } = await db.auth.admin.updateUserById(user.id, { user_metadata: { ...user.user_metadata, [key]: next } });
