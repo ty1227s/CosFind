@@ -4,4 +4,4 @@ import { AdminAnnouncements } from "@/components/admin-announcements";
 import { isAuthenticatedAdmin } from "@/lib/server/security";
 
 export const dynamic = "force-dynamic";
-export default async function Page(){if(!(await isAuthenticatedAdmin()))redirect("/login?returnTo=/admin/announcements");return <><SiteHeader/><AdminAnnouncements/></>;}
+export default async function Page(){if(!(await isAuthenticatedAdmin()))redirect("/login?returnTo=/admin/announcements");return <><SiteHeader/><main className="admin announcement-admin"><div className="admin-head"><div><p className="eyebrow">COSFIND NEWS</p><h1>お知らせ管理</h1></div><a className="admin-announcement-link" href="/admin">カタログ管理へ戻る</a></div><AdminAnnouncements/></main></>;}
