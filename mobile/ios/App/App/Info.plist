@@ -28,8 +28,6 @@
 	<string>現在地から近い店舗を表示するために位置情報を使用します。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>現在地から近い店舗を表示するために位置情報を使用します。</string>
-	<key>NSCameraUsageDescription</key>
-	<string>商品のJANコードを読み取るためにカメラを使用します。</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
