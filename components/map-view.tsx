@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { StoreResult } from "@/types/domain";
 import { getStoreTypeColor, STORE_TYPE_LEGEND } from "@/lib/store-type-color";
 import { getStoreTypeCode } from "@/lib/store-type-code";
@@ -27,6 +28,7 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
   const markersRef = useRef<import("maplibre-gl").Marker[]>([]);
   const userMarkerRef = useRef<import("maplibre-gl").Marker | null>(null);
   const centerTimerRef = useRef<number | undefined>(undefined);
+  const legendTimerRef = useRef<number | undefined>(undefined);
   const currentPositionRef = useRef<[number, number] | null>(null);
   const onSelectRef = useRef(onSelect);
   const onVisibleStoresChangeRef = useRef(onVisibleStoresChange);
@@ -35,10 +37,26 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
   const [locationState, setLocationState] = useState<"loading" | "visible" | "denied">("loading");
   const [visibleStoreCount, setVisibleStoreCount] = useState(0);
   const [visibleStoreIds, setVisibleStoreIds] = useState<string[]>([]);
+  const [legendOpen, setLegendOpen] = useState(false);
+  const [legendClosing, setLegendClosing] = useState(false);
 
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
   useEffect(() => { onVisibleStoresChangeRef.current = onVisibleStoresChange; }, [onVisibleStoresChange]);
   useEffect(() => { onCurrentLocationChangeRef.current = onCurrentLocationChange; }, [onCurrentLocationChange]);
+  const closeLegend = useCallback(() => {
+    if (!legendOpen || legendClosing) return;
+    setLegendClosing(true);
+    legendTimerRef.current = window.setTimeout(() => { setLegendOpen(false); setLegendClosing(false); }, 180);
+  }, [legendClosing, legendOpen]);
+  useEffect(() => {
+    if (!legendOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") closeLegend(); };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("keydown", onKeyDown); };
+  }, [closeLegend, legendOpen]);
+  useEffect(() => () => { if (legendTimerRef.current !== undefined) window.clearTimeout(legendTimerRef.current); }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -106,5 +124,5 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
   useEffect(() => { container.current?.querySelectorAll<HTMLElement>(".map-pin").forEach((pin) => { const active = pin.dataset.storeId === selected; pin.classList.toggle("active", active); pin.style.zIndex=active?"1000":"1"; }); }, [selected, visibleStoreIds]);
   function centerCurrentLocation() { const position = currentPositionRef.current; if (position) mapRef.current?.easeTo({ center: position, zoom: 15, duration: 700 }); }
 
-  return <><div ref={container} className="map" aria-label="在庫報告店舗地図"/><button type="button" className="current-location-button" onClick={centerCurrentLocation} disabled={locationState !== "visible"} title={locationState === "denied" ? "位置情報を利用できません" : "現在地を中心に表示"}>◎ <span>{locationState === "loading" ? "現在地を取得中" : locationState === "denied" ? "現在地を利用できません" : "現在地"}</span></button>{visibleStoreCount > 50 && <div className="map-density-warning" role="status"><b>地図を拡大してください</b></div>}<details className="store-type-legend"><summary>ピンの色（店舗ジャンル）</summary><div>{STORE_TYPE_LEGEND.map((type) => { const color = getStoreTypeColor(type); const code = getStoreTypeCode(type); return <span key={type}><i className="legend-store-code" style={{ backgroundColor: color.background, color: color.foreground }}>{code}</i> {type}</span>; })}</div></details></>;
+  return <><div ref={container} className="map" aria-label="在庫報告店舗地図"/><button type="button" className="current-location-button" onClick={centerCurrentLocation} disabled={locationState !== "visible"} title={locationState === "denied" ? "位置情報を利用できません" : "現在地を中心に表示"}>◎ <span>{locationState === "loading" ? "現在地を取得中" : locationState === "denied" ? "現在地を利用できません" : "現在地"}</span></button><button type="button" className="map-legend-button" onClick={() => setLegendOpen(true)}>凡例</button>{visibleStoreCount > 50 && <div className="map-density-warning" role="status"><b>地図を拡大してください</b></div>}{legendOpen && createPortal(<div className={`map-legend-layer${legendClosing ? " is-closing" : ""}`}><button type="button" className="map-legend-backdrop" aria-label="凡例を閉じる" onClick={closeLegend}/><section className="map-legend-dialog" role="dialog" aria-modal="true" aria-labelledby="map-legend-title"><button type="button" className="map-legend-close" aria-label="凡例を閉じる" onClick={closeLegend}>×</button><p>MAP GUIDE</p><h2 id="map-legend-title">凡例</h2><div>{STORE_TYPE_LEGEND.map((type) => { const color = getStoreTypeColor(type); const code = getStoreTypeCode(type); return <span key={type}><i className="legend-store-code" style={{ backgroundColor: color.background, color: color.foreground }}>{code}</i><b>{type}</b></span>; })}</div></section></div>, document.body)}</>;
 }

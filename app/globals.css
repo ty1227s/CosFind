@@ -388,3 +388,41 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
   .drawer-primary-navigation a:hover{background:#f7e7ef}
   .drawer-primary-navigation a span{display:grid;width:30px;height:30px;place-items:center;border-radius:9px;background:#fff;color:var(--pink);font-size:14px;font-weight:800;box-shadow:0 2px 8px #5d2a4412}
 }
+
+/* Mobile header search and drawer-only login. */
+.drawer-login-link{display:none!important}
+@media(max-width:700px){
+  .topbar{gap:0}
+  .topbar>.header-product-search{display:flex;min-width:0;max-width:none;flex:1;height:40px;margin:0 8px}
+  .topbar>.header-product-search>span{padding-left:8px;font-size:17px}
+  .topbar>.header-product-search input{padding:0 6px;font-size:13px}
+  .topbar>.header-product-search button{padding:0 9px;font-size:12px}
+  .topbar .header-login-link{display:none!important}
+  .mobile-menu-drawer .drawer-login-link{display:flex!important;min-height:46px;align-items:center;justify-content:center;gap:7px;border:1px solid #e5cbd8;background:#fff4f8;color:#9f245f;text-align:center!important;font-weight:800}
+}
+@media(max-width:380px){.topbar .brandmark>span:last-child{display:none}}
+
+/* Large map legend displayed above the map and store popup. */
+.map-legend-button{position:absolute;z-index:4;right:10px;top:150px;min-width:62px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#56384a;padding:8px 10px;box-shadow:0 2px 8px #0002;font-size:12px;font-weight:800;cursor:pointer}
+.map-legend-button:hover{background:#fff4f8}
+.map-legend-layer{position:fixed;z-index:2147483646;inset:0;display:grid;padding:20px;place-items:center;animation:popup-overlay-in .2s ease-out both}
+.map-legend-backdrop{position:absolute;inset:0;width:100%;height:100%;border:0;background:#24131d99;backdrop-filter:blur(4px);cursor:pointer}
+.map-legend-dialog{position:relative;z-index:1;width:min(620px,100%);max-height:min(720px,calc(100dvh - 40px));overflow:auto;border:1px solid #eadce3;border-radius:24px;background:#fff;padding:34px;box-shadow:0 28px 90px #140a1055;animation:popup-panel-in .22s ease-out both}
+.map-legend-dialog>p{margin:0 0 5px;color:var(--pink);font-size:12px;font-weight:800;letter-spacing:.16em}
+.map-legend-dialog h2{margin:0 50px 24px 0;font-size:30px}
+.map-legend-dialog>div{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.map-legend-dialog>div>span{display:flex;min-height:58px;align-items:center;gap:13px;border:1px solid #eee4e9;border-radius:14px;background:#fcfafb;padding:11px 13px;color:var(--ink);font-size:16px}
+.map-legend-dialog .legend-store-code{display:grid;width:46px;height:32px;flex:none;border:0;border-radius:8px;place-items:center;font-family:"Century Gothic",CenturyGothic,AppleGothic,sans-serif;font-size:13px;font-style:normal;font-weight:700;line-height:1;letter-spacing:-.04em}
+.map-legend-close{position:absolute;top:18px;right:18px;display:grid;width:42px;height:42px;border:0;border-radius:50%;background:#f5eff2;color:#694054;place-items:center;font-size:28px;line-height:1;cursor:pointer}
+.map-legend-layer.is-closing{pointer-events:none;animation:popup-overlay-out .18s ease-in both}
+.map-legend-layer.is-closing .map-legend-dialog{animation:popup-panel-out .18s ease-in both}
+@media(max-width:700px){
+  .map-legend-button{top:142px;min-width:54px;padding:7px 9px}
+  .map-legend-layer{padding:16px}
+  .map-legend-dialog{max-height:calc(100dvh - 32px);border-radius:20px;padding:26px 20px}
+  .map-legend-dialog h2{margin-bottom:18px;font-size:27px}
+  .map-legend-dialog>div{grid-template-columns:1fr;gap:8px}
+  .map-legend-dialog>div>span{min-height:52px;padding:9px 11px;font-size:15px}
+  .map-legend-close{top:13px;right:13px}
+}
+@media(prefers-reduced-motion:reduce){.map-legend-layer,.map-legend-dialog,.map-legend-layer.is-closing,.map-legend-layer.is-closing .map-legend-dialog{animation-duration:.01ms}}

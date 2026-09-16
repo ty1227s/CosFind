@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { HeaderProductSearch } from "./header-product-search";
 import { PwaInstallButton } from "./pwa-install-manager";
 
 type Session = { authenticated: boolean; isAdmin?: boolean; username?: string; avatar?: string; avatarUrl?: string; points?: number };
@@ -48,7 +47,6 @@ export function HeaderNav() {
 
   const menuItems = (drawer = false) => <>
     {drawer && <button type="button" className="mobile-menu-close" aria-label="メニューを閉じる" onClick={() => setMenuOpen(false)}>×</button>}
-    {drawer && <HeaderProductSearch mobile />}
     <div className="drawer-primary-navigation" aria-label="ページメニュー">
       <Link href="/products" onClick={() => setMenuOpen(false)}><span>⌕</span>商品検索</Link>
       <Link href="/brands" onClick={() => setMenuOpen(false)}><span>Aa</span>ブランド検索</Link>
@@ -66,6 +64,7 @@ export function HeaderNav() {
       <Link href="/profile" className="header-username" onClick={() => setMenuOpen(false)}><i className={session.avatarUrl ? "user-image" : ""}>{session.avatarUrl ? <img src={session.avatarUrl} alt="" /> : (session.avatar || "✨")}</i>{session.username || "ユーザー"}さん <b className="points-badge">{session.points ?? 0}pt</b></Link>
       <form action="/api/auth/logout" method="post" className="header-logout"><button type="submit">ログアウト</button></form>
     </>}
+    {drawer && sessionChecked && !session.authenticated && <Link href="/login" className={`drawer-login-link${loginNavigating ? " is-navigating" : ""}`} aria-busy={loginNavigating} onClick={() => { setMenuOpen(false); setLoginNavigating(true); }}>{loginNavigating && <i className="header-login-spinner"/>}{loginNavigating ? "移動中…" : "ログイン"}</Link>}
   </>;
 
   return <nav className="header-nav">
