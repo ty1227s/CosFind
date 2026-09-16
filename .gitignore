@@ -1,0 +1,82 @@
+# Dependencies and package-manager caches
+/node_modules/
+/.pnpm-store/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+**/node_modules/
+
+# Environment files and local secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+*.local
+
+# Private keys, signing files, and service configuration
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+**/keystore.properties
+!**/keystore.properties.example
+**/local.properties
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Next.js / Vite / test output
+/.next/
+/.next-*/
+/.vinext/
+/out/
+/dist/
+**/dist/
+/coverage/
+**/coverage/
+
+# Capacitor, Android, and iOS generated output
+/mobile/android/.gradle/
+/mobile/android/**/build/
+/mobile/ios/App/Pods/
+/mobile/ios/DerivedData/
+*.apk
+*.aab
+
+# TypeScript and generated JavaScript config files
+*.tsbuildinfo
+next-env.d.ts
+vite.config.js
+vite.config.d.ts
+capacitor.config.js
+capacitor.config.d.ts
+
+# Deployment and tool caches
+/.openai/
+/.codex/
+/.vercel/
+/.wrangler/
+/outputs/
+/work/
+
+# Logs and local diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

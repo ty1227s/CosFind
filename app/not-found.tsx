@@ -1,0 +1,1 @@
+import Link from "next/link";export default function NotFound(){return <main className="empty"><span className="logo"><img src="/icons/cosfind-icon.png" alt="CosFind"/></span><h1>404</h1><p>お探しのページは見つかりません。</p><Link href="/">地図に戻る</Link></main>}
