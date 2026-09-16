@@ -56,3 +56,15 @@ PC上の `127.0.0.1` はPC自身からのみ利用できます。Android実機�
 ## Google Play / App Store向けアプリ
 
 Capacitor版は [`mobile`](./mobile) にあります。Web/PWA版は変更せず、モバイル版は同じSupabase・RLS・店舗分類定義を利用します。Android Studio用プロジェクトは`mobile/android`、Xcode用プロジェクトは`mobile/ios`です。詳細なビルド・署名手順は [`mobile/README.md`](./mobile/README.md) を参照してください。
+
+## Cloudflare Workers
+
+Web版はOpenNextアダプターを利用してCloudflare Workersへデプロイします。CloudflareのGit連携では、ルートディレクトリを`/`、Build commandを`npm run build:worker`、Deploy commandを`npx wrangler deploy`に設定してください。
+
+CloudflareのBuild variables and secretsとRuntime variables and secretsの両方へ、`.env.example`に記載したSupabase・MapLibre用環境変数を設定します。`SUPABASE_SECRET_KEY`は必ずSecretとして登録し、Gitへコミットしないでください。
+
+ローカルでWorker向けビルドを確認する場合は次を実行します。
+
+```bash
+npm run build:worker
+```

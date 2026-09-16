@@ -63,6 +63,10 @@ capacitor.config.d.ts
 /.codex/
 /.vercel/
 /.wrangler/
+/.open-next/
+/.dev.vars
+/.dev.vars.*
+/cloudflare-env.d.ts
 /outputs/
 /work/
 

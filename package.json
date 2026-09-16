@@ -2,6 +2,7 @@
   "name": "cosfind",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@10.9.8",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -9,16 +10,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "build:worker": "opennextjs-cloudflare build",
+    "preview:worker": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "admin:promote": "node scripts/promote-admin.mjs"
-    ,"mobile:build": "npm --prefix mobile run build"
-    ,"mobile:sync": "npm --prefix mobile run native:sync"
-    ,"android:open": "npm --prefix mobile run android:open"
-    ,"android:aab": "npm --prefix mobile run android:aab"
+    "admin:promote": "node scripts/promote-admin.mjs",
+    "mobile:build": "npm --prefix mobile run build",
+    "mobile:sync": "npm --prefix mobile run native:sync",
+    "android:open": "npm --prefix mobile run android:open",
+    "android:aab": "npm --prefix mobile run android:aab"
   },
   "dependencies": {
+    "@opennextjs/cloudflare": "^1.20.6",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.4",
     "maplibre-gl": "6.9.0",
@@ -34,7 +40,8 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4.2.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wrangler": "^4.132.0"
   },
   "type": "module"
 }
