@@ -2,7 +2,23 @@ import "server-only";
 
 const X_POST_ENDPOINT = "https://api.x.com/2/tweets";
 
-type XPostResult = { ok: true; postId: string } | { ok: false; reason: "not_configured" | "request_failed" };
+type XPostFailureReason =
+  | "not_configured"
+  | "billing_required"
+  | "unauthorized"
+  | "forbidden"
+  | "rate_limited"
+  | "request_failed";
+
+type XPostResult = { ok: true; postId: string } | { ok: false; reason: XPostFailureReason };
+
+function failureReasonForStatus(status: number): XPostFailureReason {
+  if (status === 401) return "unauthorized";
+  if (status === 402) return "billing_required";
+  if (status === 403) return "forbidden";
+  if (status === 429) return "rate_limited";
+  return "request_failed";
+}
 
 function percentEncode(value: string) {
   return encodeURIComponent(value).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
@@ -76,7 +92,7 @@ export async function postAnnouncementToX(title: string, body: string, url: stri
     });
     if (!response.ok) {
       console.error("X announcement post failed", { status: response.status });
-      return { ok: false, reason: "request_failed" };
+      return { ok: false, reason: failureReasonForStatus(response.status) };
     }
     const result = await response.json().catch(() => null) as { data?: { id?: unknown } } | null;
     return typeof result?.data?.id === "string"

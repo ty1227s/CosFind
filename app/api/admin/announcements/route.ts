@@ -33,9 +33,16 @@ export async function POST(request: Request) {
     const announcementUrl = `${new URL(request.url).origin}/announcements/${row.id}`;
     const xResult = await postAnnouncementToX(title, body, announcementUrl);
     xPosted = xResult.ok;
-    if (!xResult.ok) warning = xResult.reason === "not_configured"
-      ? "お知らせは公開しましたが、X連携用のSecretが未設定のためXには投稿していません。"
-      : "お知らせは公開しましたが、Xへの同時投稿に失敗しました。";
+    if (!xResult.ok) {
+      warning = {
+        not_configured: "お知らせは公開しましたが、X連携用のSecretが未設定のためXには投稿していません。",
+        billing_required: "お知らせは公開しましたが、X APIの利用クレジットが不足しているためXには投稿できませんでした。X Developer Consoleでクレジットを確認してください。",
+        unauthorized: "お知らせは公開しましたが、X連携の認証情報が無効なためXには投稿できませんでした。",
+        forbidden: "お知らせは公開しましたが、Xアプリに投稿権限がないためXには投稿できませんでした。",
+        rate_limited: "お知らせは公開しましたが、X APIの利用上限に達しているためXには投稿できませんでした。時間を置いて再度お試しください。",
+        request_failed: "お知らせは公開しましたが、Xへの同時投稿に失敗しました。",
+      }[xResult.reason];
+    }
   }
   return NextResponse.json({ ok: true, xPosted, warning, announcement: { id: row.id, title: row.title, body: row.body, publishedAt: row.published_at, createdAt: row.created_at, updatedAt: row.updated_at } });
 }
