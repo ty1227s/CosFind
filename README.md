@@ -22,6 +22,10 @@ npm run dev
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: クライアント用Publishable key（`sb_publishable_...`）
 - `SUPABASE_SECRET_KEY`: サーバー専用Secret key（`sb_secret_...`）。`NEXT_PUBLIC_`を付けず、ブラウザコードから参照しない
 - `NEXT_PUBLIC_MAP_TILE_URL`: MapLibre用タイルURL
+- `X_API_KEY` / `X_API_SECRET`: X Developer Consoleで作成したCosFind用AppのOAuth 1.0a API Key / Secret（サーバー専用）
+- `X_ACCESS_TOKEN` / `X_ACCESS_TOKEN_SECRET`: `@CosFindApp` 所有者のRead and Write権限付きAccess Token / Secret（サーバー専用）
+
+管理画面から新規お知らせを公開すると、設定済みのX APIを通じて `@CosFindApp` にタイトル・本文抜粋・お知らせURLを同時投稿します。既存お知らせの編集では重複投稿しません。Xの4変数はCloudflareのRuntime Secretsとして設定し、`NEXT_PUBLIC_`を付けたりGitへコミットしたりしないでください。
 
 ## SupabaseとDBマイグレーション
 

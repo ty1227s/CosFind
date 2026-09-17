@@ -435,3 +435,4 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
 
 /* Announcements as the eighth admin tab. */
 .admin-tabs{overflow-x:auto}.admin-tabs button{flex:none}.announcement-admin-panel{display:block}.announcement-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}.announcement-panel-head h2{margin:0 0 5px;font-size:22px}.announcement-panel-head p{margin:0;color:var(--muted);font-size:12px}.announcement-panel-head>button{border:0;border-radius:11px;background:var(--pink);color:#fff;padding:11px 16px;font-weight:800;cursor:pointer}@media(max-width:700px){.announcement-panel-head{align-items:stretch;flex-direction:column}.announcement-panel-head>button{width:100%}}
+.announcement-x-note{margin:-4px 0 14px;padding:10px 12px;border-radius:10px;background:#f6f3f5;color:#665860;font-size:12px;line-height:1.6}
