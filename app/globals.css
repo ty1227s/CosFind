@@ -392,7 +392,7 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
 
 /* Mobile header search and drawer-only login. */
 .drawer-login-link{display:none!important}
-.drawer-brandmark{display:none;color:inherit;text-decoration:none}
+.drawer-brandmark{display:none!important;color:inherit;text-decoration:none}
 .mobile-menu-drawer .drawer-account{display:flex!important;min-height:58px;align-items:center;gap:8px;margin:0 0 5px;padding:10px 12px!important;border:1px solid #eadde3!important;border-radius:13px;background:#fff7fa;color:#5e5360;text-decoration:none}
 .mobile-menu-drawer .drawer-account>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mobile-menu-drawer .drawer-account .points-badge{margin-left:auto;flex:none}
@@ -404,7 +404,7 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
   .topbar>.header-product-search input{padding:0 6px;font-size:13px}
   .topbar>.header-product-search button{padding:0 9px;font-size:12px}
   .topbar .header-login-link{display:none!important}
-  .mobile-menu-drawer .drawer-brandmark{position:absolute;top:14px;left:14px;display:flex;max-width:calc(100% - 76px);height:42px;align-items:center;gap:9px}
+  .mobile-menu-drawer .drawer-brandmark{position:absolute;top:14px;left:14px;display:flex!important;max-width:calc(100% - 76px);height:42px;align-items:center;gap:9px}
   .mobile-menu-drawer .drawer-brandmark .logo{width:42px;height:42px;flex:none;border-radius:12px}
   .mobile-menu-drawer .drawer-brandmark b{overflow:hidden;font-size:19px;letter-spacing:.02em;text-overflow:ellipsis;white-space:nowrap}
   .mobile-menu-drawer .drawer-login-link{display:flex!important;min-height:46px;align-items:center;justify-content:center;gap:7px;border:1px solid #e5cbd8;background:#fff4f8;color:#9f245f;text-align:center!important;font-weight:800}
