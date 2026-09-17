@@ -338,10 +338,31 @@ function Actions({ view, edit, remove }: { view: () => void; edit?: () => void; 
 function RequestActions({ review, reject }: { review: () => void; reject: () => void }) { return <span className="row-actions request-actions"><button onClick={review}>編集して承認</button><button className="danger" onClick={reject}>却下</button></span>; }
 function EmptyRequests(){return <div className="request-empty"><b>審査待ちの申請はありません</b><span>ユーザーから申請が届くと、ここに表示されます。</span></div>}
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="field"><span>{label}</span>{children}</label>; }
+function changeHoveredSelectWithWheel(event: WheelEvent) {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement) || target.disabled || event.deltaY === 0) return;
+  event.stopPropagation();
+  if (target.multiple || target.size > 1) return;
+  event.preventDefault();
+
+  const direction = event.deltaY > 0 ? 1 : -1;
+  const options = Array.from(target.options);
+  let nextIndex = target.selectedIndex;
+  for (let index = target.selectedIndex + direction; index >= 0 && index < options.length; index += direction) {
+    const option = options[index];
+    const group = option.parentElement instanceof HTMLOptGroupElement ? option.parentElement : null;
+    if (!option.disabled && !group?.disabled) { nextIndex = index; break; }
+  }
+  target.focus({ preventScroll: true });
+  if (nextIndex === target.selectedIndex) return;
+  target.selectedIndex = nextIndex;
+  target.dispatchEvent(new Event("change", { bubbles: true }));
+}
 function Modal({ title, close, submit, children }: { title: string; close: () => void; submit: (e: React.FormEvent<HTMLFormElement>) => void; children: React.ReactNode }) {
   const formRef = useRef<HTMLFormElement>(null);
   const { closing, requestClose } = useFadeClose(close);
   useEffect(() => { formRef.current?.querySelector<HTMLElement>("input:not([type='hidden']):not([disabled]), select:not([disabled]), textarea:not([disabled])")?.focus(); }, []);
+  useEffect(() => { const form = formRef.current; if (!form) return; const handleWheel = (event: WheelEvent) => changeHoveredSelectWithWheel(event); form.addEventListener("wheel", handleWheel, { passive: false }); return () => form.removeEventListener("wheel", handleWheel); }, []);
   function trapFocus(event: React.KeyboardEvent<HTMLFormElement>) {
     if (event.key !== "Tab") return;
     const focusable = [...(formRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([type='hidden']):not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])") ?? [])].filter((element) => element.offsetParent !== null);
@@ -353,7 +374,7 @@ function Modal({ title, close, submit, children }: { title: string; close: () =>
   return <div className={`admin-modal${closing ? " is-closing" : ""}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }}><form ref={formRef} onSubmit={submit} onKeyDown={trapFocus} role="dialog" aria-modal="true" aria-label={title}><button type="button" className="modal-close shortcut-close" onClick={requestClose}>×（Esc）</button><h2>{title}</h2>{children}<button className="submit" type="submit">保存する（Enter）</button></form></div>;
 }
 
-function useFadeClose(close: () => void) { const [closing, setClosing] = useState(false); const timer = useRef<number | null>(null); const closeRef = useRef(close); closeRef.current = close; const requestClose = useCallback(() => { setClosing((current) => { if (current) return current; timer.current = window.setTimeout(() => closeRef.current(), 180); return true; }); }, []); useEffect(() => { window.addEventListener("cosfind-close-modal", requestClose); return () => { window.removeEventListener("cosfind-close-modal", requestClose); if (timer.current !== null) window.clearTimeout(timer.current); }; }, [requestClose]); return { closing, requestClose }; }
+function useFadeClose(close: () => void) { const [closing, setClosing] = useState(false); const timer = useRef<number | null>(null); const closeRef = useRef(close); closeRef.current = close; const requestClose = useCallback(() => { setClosing((current) => { if (current) return current; timer.current = window.setTimeout(() => closeRef.current(), 180); return true; }); }, []); useEffect(() => { const previousOverflow = document.body.style.overflow; document.body.style.overflow = "hidden"; window.addEventListener("cosfind-close-modal", requestClose); return () => { document.body.style.overflow = previousOverflow; window.removeEventListener("cosfind-close-modal", requestClose); if (timer.current !== null) window.clearTimeout(timer.current); }; }, [requestClose]); return { closing, requestClose }; }
 function StoreChainFields({ chains, initialChain, initialType }: { chains: Chain[]; initialChain: string; initialType: string }) {
   const initialRegistered = chains.find((chain) => chain.name === initialChain) ?? (initialChain ? { id: "request-chain", name: initialChain, storeType: initialType } : undefined);
   const [chainName, setChainName] = useState(initialRegistered?.name || "");
