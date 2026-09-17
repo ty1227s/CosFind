@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -45,8 +46,23 @@ export function HeaderNav() {
 
   if (adminArea) return <nav className="header-nav admin-header-nav"><span className="admin-session-label">{pathname === "/admin/login" ? "管理画面" : "管理画面ログイン中"}</span>{pathname !== "/admin/login" && <form action="/api/admin/logout" method="post" className="header-logout admin-header-logout"><button type="submit">ログアウト</button></form>}</nav>;
 
+  const accountLink = (drawer = false) => session.authenticated && (
+    <Link href="/profile" className={`header-username${drawer ? " drawer-account" : ""}`} onClick={() => setMenuOpen(false)}>
+      <i className={session.avatarUrl ? "user-image" : ""}>
+        {session.avatarUrl ? <img src={session.avatarUrl} alt="" /> : (session.avatar || "✨")}
+      </i>
+      <span>{session.username || "ユーザー"}さん</span>
+      <b className="points-badge">{session.points ?? 0}pt</b>
+    </Link>
+  );
+
   const menuItems = (drawer = false) => <>
     {drawer && <button type="button" className="mobile-menu-close" aria-label="メニューを閉じる" onClick={() => setMenuOpen(false)}>×</button>}
+    {drawer && <Link href="/" className="drawer-brandmark" onClick={() => setMenuOpen(false)}>
+      <span className="logo"><Image src="/icons/cosfind-icon.png" alt="" width={40} height={40} /></span>
+      <b>CosFind</b>
+    </Link>}
+    {drawer && accountLink(true)}
     <div className="drawer-primary-navigation" aria-label="ページメニュー">
       <Link href="/products" onClick={() => setMenuOpen(false)}><span>⌕</span>商品検索</Link>
       <Link href="/brands" onClick={() => setMenuOpen(false)}><span>Aa</span>ブランド検索</Link>
@@ -63,7 +79,7 @@ export function HeaderNav() {
       <Link href="/requests/store" className="request-link" onClick={() => setMenuOpen(false)}>店舗申請</Link>
     </>}
     {session.authenticated && <>
-      <Link href="/profile" className="header-username" onClick={() => setMenuOpen(false)}><i className={session.avatarUrl ? "user-image" : ""}>{session.avatarUrl ? <img src={session.avatarUrl} alt="" /> : (session.avatar || "✨")}</i>{session.username || "ユーザー"}さん <b className="points-badge">{session.points ?? 0}pt</b></Link>
+      {!drawer && accountLink()}
       <form action="/api/auth/logout" method="post" className="header-logout"><button type="submit">ログアウト</button></form>
     </>}
     {drawer && sessionChecked && !session.authenticated && <Link href="/login" className={`drawer-login-link${loginNavigating ? " is-navigating" : ""}`} aria-busy={loginNavigating} onClick={() => { setMenuOpen(false); setLoginNavigating(true); }}>{loginNavigating && <i className="header-login-spinner"/>}{loginNavigating ? "移動中…" : "ログイン"}</Link>}
