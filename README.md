@@ -27,6 +27,8 @@ npm run dev
 
 Supabaseでプロジェクトを作成後、`supabase link --project-ref <ref>`、`supabase db push` の順に実行し、`supabase/migrations` 内の全マイグレーションを適用します。AuthのEmail providerとメール確認を有効化してください。
 
+パスワード再設定メールを利用するには、Supabase Dashboardの Authentication → URL Configuration で、本番URLの `/reset-password`（例: `https://<公開ドメイン>/reset-password`）とローカル確認用の `http://localhost:3000/reset-password` をRedirect URLsへ追加してください。画面上では、入力されたメールアドレスの登録有無を表示しません。
+
 RLSは公開カタログ参照、自分の投稿・申請の作成、投稿停止ユーザーの拒否を定義します。公開集約Viewに `user_id` は含まれません。
 
 ## 起動モード

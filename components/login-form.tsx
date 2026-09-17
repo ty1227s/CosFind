@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { SiteHeader } from "./site-header";
 
@@ -22,6 +23,7 @@ export function LoginForm() {
   const [signup, setSignup] = useState(params.get("mode") === "signup");
   const error = params.get("error");
   const registered = params.get("registered");
+  const passwordReset = params.get("passwordReset");
 
   return <>
     <SiteHeader />
@@ -51,8 +53,10 @@ export function LoginForm() {
             <label className="field"><span>ユーザー名またはメールアドレス</span><input name="identifier" autoComplete="username" minLength={3} required placeholder="cosme_user または mail@example.com" /></label>
             <label className="field"><span>パスワード</span><input name="password" type="password" autoComplete="current-password" required /></label>
             {registered && <p className="form-success">{registered === "check-email" ? "確認メールを送信しました。メール内のリンクで登録を完了してください。" : "登録が完了しました。ログインしてください。"}</p>}
+            {passwordReset === "success" && <p className="form-success">パスワードを更新しました。新しいパスワードでログインしてください。</p>}
             {error && !params.get("mode") && <p className="form-error">{error === "config" ? "本番ログインの設定が必要です。" : "ユーザー名・メールアドレスまたはパスワードが違います。"}</p>}
             <button className="submit" type="submit">ログイン</button>
+            <p className="forgot-password-link"><Link href="/forgot-password">パスワードを忘れた方</Link></p>
             <p className="login-note">アカウントをお持ちでない場合は「新規ユーザー登録」を選択してください。</p>
           </form>
         </>}
