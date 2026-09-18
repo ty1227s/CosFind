@@ -24,7 +24,7 @@ type DetailData = { title: string; fields: { label: string; value: string }[] };
 type AdminUser = { id:string;username:string;displayName:string;email:string;avatar:string;avatarUrl:string;status:string;postingSuspended:boolean;isAdmin:boolean;createdAt:string;lastSignInAt:string|null;stockReports:number;productRequests:number;storeRequests:number;points:number;favoriteProducts:number;favoriteStores:number };
 
 const keys = { brands: "cosfind_admin_brands_v1", chains: "cosfind_admin_chains_v1", products: "cosfind_admin_products_v1", stores: "cosfind_admin_stores_v1" };
-const ADMIN_PAGE_SIZE = 30;
+const ADMIN_PAGE_SIZE = 20;
 const seedBrands: Brand[] = [...new Set(seedProducts.map((p) => p.brand))].map((name, index) => ({ id: `b${index + 1}`, name, nameKana: "" }));
 const seedChains: Chain[] = [...new Set(seedStores.map((s) => s.chain).filter(Boolean))].map((name, index) => ({ id: `c${index + 1}`, name, storeType: seedStores.find((s) => s.chain === name)?.type || STORE_TYPES[0] }));
 
