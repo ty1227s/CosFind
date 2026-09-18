@@ -16,7 +16,7 @@ import { isStorePubliclyVisible } from "@/lib/store-operating-period";
 export const dynamic = "force-dynamic";
 type Store = { id:string;name:string;chain:string;type:string;address:string;latitude:number;longitude:number;openingDate?:string;closingDate?:string;customName?:boolean };
 type ReportRow = { product_id:string;reported_at:string;products:{id:string;name:string;category:string;brands:{name:string}|{name:string}[]|null}|null };
-type MetadataPayload = { brandIds?:unknown;brandId?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown };
+type MetadataPayload = { metadataType?:unknown;brandIds?:unknown;brandId?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown };
 const WEEKDAYS=[{key:"mon",label:"月"},{key:"tue",label:"火"},{key:"wed",label:"水"},{key:"thu",label:"木"},{key:"fri",label:"金"},{key:"sat",label:"土"},{key:"sun",label:"日"}];
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +37,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const businessHours=businessMetadata?.businessHours&&typeof businessMetadata.businessHours==="object"?businessMetadata.businessHours as Record<string,{openingTime?:string;closingTime?:string;closed?:boolean}>:{};
   const weeklyHours=WEEKDAYS.map(({key,label})=>{const hours=businessHours[key];return{key,label,openingTime:hours?.openingTime||"",closingTime:hours?.closingTime||"",closed:hours?.closed===true}});
   const hasWeeklyHours=weeklyHours.some(hours=>hours.closed||hours.openingTime||hours.closingTime);
-  const brandIds=[...new Set(metadataPayloads.flatMap(payload=>[...(Array.isArray(payload.brandIds)?payload.brandIds.filter((value):value is string=>typeof value==="string"):[]),...(typeof payload.brandId==="string"?[payload.brandId]:[])]))];
+  const managedBrandIds=metadataPayloads.find(payload=>payload.metadataType==="store_provisional_brands"&&Array.isArray(payload.brandIds))?.brandIds;
+  const brandIds=[...new Set([...(Array.isArray(managedBrandIds)?managedBrandIds.filter((value):value is string=>typeof value==="string"):[]),...metadataPayloads.flatMap(payload=>typeof payload.brandId==="string"?[payload.brandId]:[])])];
   const directBrandsResult=brandIds.length?await db.from("brands").select("name").in("id",brandIds):{data:[] as {name:string}[]};
   const directBrands=(directBrandsResult.data??[]).map(brand=>brand.name);
   const reportsResult=await db.from("stock_reports").select("product_id,reported_at,products(id,name,category,brands(name))").eq("store_id",id).eq("status","available").order("reported_at",{ascending:false}).limit(200);
