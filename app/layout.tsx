@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { MobileBottomActionSpace } from "@/components/mobile-bottom-action-space";
 import { PwaInstallManager } from "@/components/pwa-install-manager";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
@@ -24,5 +23,5 @@ export const viewport: Viewport = { themeColor: "#c02672", width: "device-width"
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   await headers();
-  return <html lang="ja"><head><link rel="stylesheet" href="https://use.typekit.net/iqo1umm.css"/></head><body>{children}<MobileBottomActionSpace /><PwaInstallManager /></body></html>;
+  return <html lang="ja"><head><link rel="stylesheet" href="https://use.typekit.net/iqo1umm.css"/></head><body>{children}<PwaInstallManager /></body></html>;
 }
