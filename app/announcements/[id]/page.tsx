@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { UUID_PATTERN } from "@/lib/server/validation";
+import { formatAnnouncementDateTime } from "@/lib/format-announcement-date";
 
 export const dynamic = "force-dynamic";
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -28,11 +29,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             ‹ お知らせ一覧へ
           </Link>
           <time className="announcement-published-date" dateTime={item.published_at}>
-            {new Date(item.published_at).toLocaleDateString("ja-JP", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {formatAnnouncementDateTime(item.published_at)}
           </time>
           <h1>{item.title}</h1>
           <div className="announcement-body">{item.body}</div>
