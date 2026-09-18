@@ -1,2 +1,5 @@
-import { FavoriteManager } from "@/components/favorite-manager";
-export default function FavoriteManagementPage() { return <FavoriteManager/>; }
+import { redirect } from "next/navigation";
+
+export default function FavoriteManagementPage() {
+  redirect("/profile/favorites/products");
+}
