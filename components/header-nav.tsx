@@ -73,7 +73,7 @@ export function HeaderNav() {
     </div>
     {drawer && <PwaInstallButton />}
     {session.authenticated && session.isAdmin && <Link href="/admin" className="report-link admin-link" onClick={() => setMenuOpen(false)}>⚙ 管理画面へ</Link>}
-    {session.authenticated && !session.isAdmin && <>
+    {session.authenticated && <>
       <Link href="/report" className="report-link" onClick={() => setMenuOpen(false)}>✦ 在庫を報告</Link>
       <Link href="/requests/product" className="request-link" onClick={() => setMenuOpen(false)}>商品申請</Link>
       <Link href="/requests/store" className="request-link" onClick={() => setMenuOpen(false)}>店舗申請</Link>
