@@ -7,7 +7,7 @@ import { isValidOperatingDate } from "@/lib/store-operating-period";
 type Entity = "brand" | "chain" | "product" | "store";
 type Brand = { name: string; nameKana?: string };
 type Chain = { name: string; storeType: string };
-type Product = { brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; releaseDate?:string; spf?:number|null; pa?:string|null; variants: { name: string; colorCode?: string; janCode?: string; releaseDate?:string }[] };
+type Product = { brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; releaseDate?:string; spf?:number|null; pa?:string|null; variants: { name: string; colorCode?: string; janCode?: string; releaseDate?:string }[] };
 type StoreHours=Record<string,{openingTime:string;closingTime:string;closed:boolean}>;
 type Store = { id?: string; name: string; chain?: string; type: string; address: string; latitude: number; longitude: number; customName?:boolean; createdAt?:string; provisionalBrandIds?:string[]; openingTime?:string; closingTime?:string; openingDate?:string; closingDate?:string; businessHours?:StoreHours };
 function errorMessage(error: unknown) {
@@ -27,7 +27,7 @@ export async function GET() {
     const [brandsResult, chainsResult, productsResult, storesResult, productRequestsResult, storeRequestsResult] = await Promise.all([
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
-      db.from("products").select("id,name,category,additional_categories,jan_code,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name"),
+      db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name"),
       db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name"),
       db.from("product_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
       db.from("store_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
@@ -48,13 +48,13 @@ export async function GET() {
         customName:typeof payload.customName==="boolean"?payload.customName:previous.customName,
       });
     }
-    type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
+    type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
     const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
     return NextResponse.json({
       ok: true,
       brands: (brandsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, nameKana: row.name_kana ?? "" })),
       chains: (chainsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, storeType: row.store_type })),
-      products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })) })),
+      products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })) })),
       stores: (storesResult.data ?? []).map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
       productRequests: (productRequestsResult.data ?? []).map((row) => ({ ...((row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {}), id: row.id, createdAt: row.created_at, status: "pending" })),
       storeRequests: (storeRequestsResult.data ?? []).map((row) => ({ ...((row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {}), id: row.id, createdAt: row.created_at, status: "pending" })),
@@ -93,13 +93,15 @@ export async function POST(request: Request) {
       if (previous && previous.name !== row.name) { const stores = await db.from("stores").update({ chain_name: row.name, store_type: row.storeType }).eq("chain_name", previous.name); if (stores.error) throw stores.error; }
     } else if (body.entity === "product") {
       const row = body.data as Product; const previous = body.previous as Product | undefined; const currentBrandId = await getBrandId(row.brand); let productId = "";
+      const primaryJanCode = row.janCode?.trim() || null;
+      const additionalJanCodes = [...new Set((row.additionalJanCodes??[]).map((code)=>code.trim()).filter((code)=>code&&code!==primaryJanCode))].slice(0,30);
       if (previous) {
         const previousBrandId = await getBrandId(previous.brand);
         const found = await db.from("products").select("id").eq("brand_id", previousBrandId).eq("name", previous.name).maybeSingle();
         if (found.error) throw found.error;
-        if (found.data) { productId = found.data.id; const updated = await db.from("products").update({ brand_id: currentBrandId, name: row.name.trim(), category: row.category, additional_categories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))], jan_code: row.janCode || null,release_date:row.releaseDate||null,spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,is_active: true }).eq("id", productId); if (updated.error) throw updated.error; }
+        if (found.data) { productId = found.data.id; const updated = await db.from("products").update({ brand_id: currentBrandId, name: row.name.trim(), category: row.category, additional_categories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))], jan_code:primaryJanCode,additional_jan_codes:additionalJanCodes,release_date:row.releaseDate||null,spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,is_active: true }).eq("id", productId); if (updated.error) throw updated.error; }
       }
-      if (!productId) { const saved = await db.from("products").upsert({ brand_id: currentBrandId, name: row.name.trim(), category: row.category, additional_categories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))], jan_code: row.janCode || null,release_date:row.releaseDate||null,spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,is_active: true }, { onConflict: "brand_id,name" }).select("id").single(); if (saved.error) throw saved.error; productId = saved.data.id; }
+      if (!productId) { const saved = await db.from("products").upsert({ brand_id: currentBrandId, name: row.name.trim(), category: row.category, additional_categories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))], jan_code:primaryJanCode,additional_jan_codes:additionalJanCodes,release_date:row.releaseDate||null,spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,is_active: true }, { onConflict: "brand_id,name" }).select("id").single(); if (saved.error) throw saved.error; productId = saved.data.id; }
       const removed = await db.from("product_variants").delete().eq("product_id", productId); if (removed.error) throw removed.error;
       const variants = row.variants.filter((variant) => variant.name.trim()).map((variant) => ({ product_id: productId, variant_name: variant.name.trim(), color_code: variant.colorCode || null, jan_code: variant.janCode || null,release_date:variant.releaseDate||null }));
       if (variants.length) { const inserted = await db.from("product_variants").insert(variants); if (inserted.error) throw inserted.error; }

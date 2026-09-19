@@ -6,10 +6,11 @@ import {operatingPeriodQuery} from "@/lib/store-operating-period";
 export const supabaseRepository:CatalogRepository={
  async searchProducts(query){
   const db=createSupabaseBrowserClient();
-  let request=db.from("products").select("id,name,category,additional_categories,jan_code,release_date,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active",true).order("name").limit(500);
-  if(query.trim())request=request.or(`name.ilike.%${query}%,jan_code.eq.${query}`);
+  let request=db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active",true).order("name").limit(500);
+  const keyword=query.trim();
+  if(keyword)request=/^\d+$/.test(keyword)?request.or(`name.ilike.%${keyword}%,jan_code.eq.${keyword},additional_jan_codes.cs.{${keyword}}`):request.ilike("name",`%${keyword.replaceAll("%","\\%").replaceAll("_","\\_")}%`);
   const{data,error}=await request;if(error)throw error;
- return(data??[]).map(row=>({id:row.id,brand:(row.brands as unknown as {name:string}|null)?.name??"",name:row.name,category:row.category,additionalCategories:row.additional_categories??[],janCode:row.jan_code??"",releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,variants:((row.product_variants??[]) as unknown as {id:string;variant_name:string;color_code:string|null;jan_code:string|null;release_date:string|null}[]).map(v=>({id:v.id,name:v.variant_name,colorCode:v.color_code??undefined,janCode:v.jan_code??"",releaseDate:v.release_date??""}))})) as Product[];
+ return(data??[]).map(row=>({id:row.id,brand:(row.brands as unknown as {name:string}|null)?.name??"",name:row.name,category:row.category,additionalCategories:row.additional_categories??[],janCode:row.jan_code??"",additionalJanCodes:row.additional_jan_codes??[],releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,variants:((row.product_variants??[]) as unknown as {id:string;variant_name:string;color_code:string|null;jan_code:string|null;release_date:string|null}[]).map(v=>({id:v.id,name:v.variant_name,colorCode:v.color_code??undefined,janCode:v.jan_code??"",releaseDate:v.release_date??""}))})) as Product[];
  },
  async getStores(){
   const db=createSupabaseBrowserClient();
