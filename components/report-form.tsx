@@ -58,12 +58,12 @@ export function ReportForm() {
 
   const product = useMemo(() => products.find((item) => item.id === productId), [productId, products]);
   const brands = useMemo(() => [...new Set(products.map((item) => item.brand))].sort((a, b) => a.localeCompare(b, "ja")), [products]);
-  const categories = useMemo(() => [...new Set(products.filter((item) => !brandFilter || item.brand === brandFilter).map((item) => item.category))].sort((a, b) => a.localeCompare(b, "ja")), [products, brandFilter]);
-  const filteredProducts = useMemo(() => products.filter((item) => (!brandFilter || item.brand === brandFilter) && (!categoryFilter || item.category === categoryFilter)), [products, brandFilter, categoryFilter]);
+  const categories = useMemo(() => [...new Set(products.filter((item) => !brandFilter || item.brand === brandFilter).flatMap((item) => [item.category,...(item.additionalCategories??[])]))].sort((a, b) => a.localeCompare(b, "ja")), [products, brandFilter]);
+  const filteredProducts = useMemo(() => products.filter((item) => (!brandFilter || item.brand === brandFilter) && (!categoryFilter || item.category === categoryFilter || (item.additionalCategories??[]).includes(categoryFilter))), [products, brandFilter, categoryFilter]);
   const lockedStore = useMemo(() => requestedStoreId ? stores.find((store) => store.id === requestedStoreId) : undefined, [requestedStoreId, stores]);
 
   function selectFirstProduct(brand: string, category: string) {
-    const first = products.find((item) => (!brand || item.brand === brand) && (!category || item.category === category));
+    const first = products.find((item) => (!brand || item.brand === brand) && (!category || item.category === category || (item.additionalCategories??[]).includes(category)));
     setProductId(first?.id || ""); setVariantId(first?.variants[0]?.id || "");
   }
 

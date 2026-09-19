@@ -15,7 +15,7 @@ import { isStorePubliclyVisible } from "@/lib/store-operating-period";
 
 export const dynamic = "force-dynamic";
 type Store = { id:string;name:string;chain:string;type:string;address:string;latitude:number;longitude:number;openingDate?:string;closingDate?:string;customName?:boolean };
-type ReportRow = { product_id:string;reported_at:string;products:{id:string;name:string;category:string;brands:{name:string}|{name:string}[]|null}|null };
+type ReportRow = { product_id:string;reported_at:string;products:{id:string;name:string;category:string;additional_categories:string[]|null;brands:{name:string}|{name:string}[]|null}|null };
 type MetadataPayload = { metadataType?:unknown;brandIds?:unknown;brandId?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown };
 const WEEKDAYS=[{key:"mon",label:"月"},{key:"tue",label:"火"},{key:"wed",label:"水"},{key:"thu",label:"木"},{key:"fri",label:"金"},{key:"sat",label:"土"},{key:"sun",label:"日"}];
 
@@ -41,7 +41,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const brandIds=[...new Set([...(Array.isArray(managedBrandIds)?managedBrandIds.filter((value):value is string=>typeof value==="string"):[]),...metadataPayloads.flatMap(payload=>typeof payload.brandId==="string"?[payload.brandId]:[])])];
   const directBrandsResult=brandIds.length?await db.from("brands").select("name").in("id",brandIds):{data:[] as {name:string}[]};
   const directBrands=(directBrandsResult.data??[]).map(brand=>brand.name);
-  const reportsResult=await db.from("stock_reports").select("product_id,reported_at,products(id,name,category,brands(name))").eq("store_id",id).eq("status","available").order("reported_at",{ascending:false}).limit(200);
+  const reportsResult=await db.from("stock_reports").select("product_id,reported_at,products(id,name,category,additional_categories,brands(name))").eq("store_id",id).eq("status","available").order("reported_at",{ascending:false}).limit(200);
   const reports=(reportsResult.data??[]) as unknown as ReportRow[];
   const seen=new Set<string>();
   const recent=reports.filter(report=>report.products&&!seen.has(report.product_id)&&seen.add(report.product_id)).slice(0,10);
@@ -49,7 +49,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const reportedBrands=[...new Set([...directBrands,...stockBrands])].sort((a,b)=>a.localeCompare(b,"ja")).slice(0,15);
   const allBrandsResult=await db.from("brands").select("id,name").order("name");
   const allBrands=(allBrandsResult.data??[]) as {id:string;name:string}[];
-  const productItems:StoreProductItem[]=recent.map(report=>{const product=report.products!;return{id:product.id,name:product.name,brand:Array.isArray(product.brands)?product.brands[0]?.name??"":product.brands?.name??"",category:product.category,reportedAt:report.reported_at}});
+  const productItems:StoreProductItem[]=recent.map(report=>{const product=report.products!;return{id:product.id,name:product.name,brand:Array.isArray(product.brands)?product.brands[0]?.name??"":product.brands?.name??"",category:product.category,additionalCategories:product.additional_categories??[],reportedAt:report.reported_at}});
   const googleMapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${store.latitude},${store.longitude}`)}`;
   const storeTypeColor=getStoreTypeColor(store.type);
 

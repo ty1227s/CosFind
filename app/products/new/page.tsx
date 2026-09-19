@@ -9,6 +9,7 @@ type NewProduct = {
   id: string;
   name: string;
   category: string;
+  additional_categories: string[] | null;
   release_date: string | null;
   brands: { name: string } | { name: string }[] | null;
   product_variants: { id: string; variant_name: string; color_code: string | null; release_date: string | null }[];
@@ -49,7 +50,7 @@ function ProductCards({ products, selectedDate, today }: { products: NewProduct[
       <span className={badgeClass}>{badge}</span>
       <small>{brandName(product.brands) || "ブランド未設定"}</small>
       <h3>{product.name}</h3>
-      <p>{product.category}</p>
+      <p>{[product.category,...(product.additional_categories??[])].join(" / ")}</p>
       {variants.length > 0 && <div className="new-cosmetics-variants"><b>この日の新色</b><span>{variants.map((variant) => `${variant.color_code ? `${variant.color_code} ` : ""}${variant.variant_name}`).join(" / ")}</span></div>}
       <time dateTime={selectedDate}>{displayDate(selectedDate)}</time>
     </Link>;
@@ -60,7 +61,7 @@ export default async function NewCosmeticsPage({ searchParams }: { searchParams:
   const today = tokyoToday();
   const selectedDate = validDate((await searchParams).date, today);
   const db = createSupabaseAdminClient();
-  const columns = "id,name,category,release_date,brands(name),product_variants(id,variant_name,color_code,release_date)";
+  const columns = "id,name,category,additional_categories,release_date,brands(name),product_variants(id,variant_name,color_code,release_date)";
   const [datedProducts, datedVariants] = await Promise.all([
     db.from("products").select(columns).eq("is_active", true).eq("release_date", selectedDate).limit(500),
     db.from("product_variants").select("product_id").eq("release_date", selectedDate).limit(1000),
