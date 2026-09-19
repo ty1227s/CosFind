@@ -63,14 +63,14 @@ export default async function NewCosmeticsPage({ searchParams }: { searchParams:
   const db = createSupabaseAdminClient();
   const columns = "id,name,category,additional_categories,release_date,brands(name),product_variants(id,variant_name,color_code,release_date)";
   const [datedProducts, datedVariants] = await Promise.all([
-    db.from("products").select(columns).eq("is_active", true).eq("release_date", selectedDate).limit(500),
+    db.from("products").select(columns).eq("is_active", true).eq("release_date", selectedDate).order("created_at", { referencedTable: "product_variants" }).limit(500),
     db.from("product_variants").select("product_id").eq("release_date", selectedDate).limit(1000),
   ]);
   const directRows = (datedProducts.data ?? []) as unknown as NewProduct[];
   const directIds = new Set(directRows.map((product) => product.id));
   const variantProductIds = [...new Set((datedVariants.data ?? []).map((variant) => variant.product_id).filter((id) => !directIds.has(id)))];
   const variantProducts = variantProductIds.length
-    ? await db.from("products").select(columns).eq("is_active", true).in("id", variantProductIds)
+    ? await db.from("products").select(columns).eq("is_active", true).in("id", variantProductIds).order("created_at", { referencedTable: "product_variants" })
     : { data: [] as unknown[], error: null };
   const resultError = datedProducts.error ?? datedVariants.error ?? variantProducts.error;
   const products = [...directRows, ...((variantProducts.data ?? []) as unknown as NewProduct[])]

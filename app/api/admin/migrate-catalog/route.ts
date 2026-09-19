@@ -18,7 +18,7 @@ export async function GET() {
     const [brandsResult, chainsResult, productsResult, storesResult] = await Promise.all([
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
-      db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,brands(name),product_variants(id,variant_name,color_code,jan_code)").eq("is_active", true).order("name"),
+      db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,brands(name),product_variants(id,variant_name,color_code,jan_code)").eq("is_active", true).order("name").order("created_at", { referencedTable: "product_variants" }),
       db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("is_active", true).order("name"),
     ]);
     const error = brandsResult.error || chainsResult.error || productsResult.error || storesResult.error;

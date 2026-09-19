@@ -266,19 +266,22 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
 .admin-modal form:has(.variant-table-editor){width:min(960px,100%)}
 .variant-table-editor{min-width:0;margin:5px 0 20px;border:1px solid #e5d9df;border-radius:14px;padding:14px;background:#fcfafb}
 .variant-table-editor legend{padding:0 7px;color:var(--ink);font-size:13px;font-weight:800}
+.variant-reorder-help{margin:0 0 9px;color:var(--muted);font-size:11px}
 .variant-table-scroll{width:100%;overflow-x:auto;padding-bottom:3px}
 .variant-table-editor table{width:max-content;min-width:100%;border-collapse:collapse;border:1px solid #cfc8cd;background:#fff}
 .variant-table-editor th,.variant-table-editor td{border:1px solid #d8d2d6;white-space:nowrap}
 .variant-table-editor thead th{padding:7px 10px;background:#f1edef;color:var(--muted);font-size:11px;font-weight:700;text-align:left}
 .variant-table-editor td{padding:0;background:#fff}
-.variant-table-editor .variant-row-number{width:2.5em;min-width:2.5em;padding:7px 8px;background:#f1edef;color:#736b70;font-size:11px;font-weight:600;text-align:center}
+.variant-table-editor .variant-row-number{width:3.7em;min-width:3.7em;padding:4px;background:#f1edef;color:#736b70;font-size:11px;font-weight:600;text-align:center}.variant-table-editor .variant-row-number>span{display:block;font-size:9px;line-height:1}
+.variant-drag-handle{display:block;width:30px;height:24px;margin:auto;border:0;background:transparent;color:#775d6a;font-size:18px;line-height:1;cursor:grab!important;touch-action:none}.variant-drag-handle:active{cursor:grabbing!important}.variant-drag-handle:disabled{cursor:not-allowed!important;opacity:.3}
+.variant-table-editor tbody tr{transition:opacity .15s ease,box-shadow .15s ease}.variant-table-editor tbody tr.is-dragging{opacity:.42}.variant-table-editor tbody tr.drop-before{box-shadow:inset 0 3px var(--pink)}.variant-table-editor tbody tr.drop-after{box-shadow:inset 0 -3px var(--pink)}
 .variant-table-editor input:not([type="hidden"]){display:block;box-sizing:content-box;max-width:34ch;border:0;border-radius:0;background:transparent;padding:10px 11px;font-size:14px;outline:0}
 .variant-table-editor tbody td:nth-child(2) input{field-sizing:content;min-width:10ch;max-width:60ch;padding-inline:5px}
 .variant-table-editor tbody td:nth-child(3) input{field-sizing:content;min-width:3ch;max-width:10ch;padding-inline:5px}
 .variant-table-editor input[type="date"]{box-sizing:border-box;width:9.25em;padding-inline:5px}
 .variant-table-editor td:focus-within{position:relative;box-shadow:inset 0 0 0 2px var(--pink);z-index:1}
 .variant-table-editor button{font-size:12px;font-weight:700;cursor:pointer}
-.variant-remove{display:grid;width:34px;height:36px;border:0;border-radius:0;background:#fff7fa;color:#a32d58;padding:8px;place-items:center}.variant-remove svg{width:17px;height:17px;fill:currentColor}.variant-remove:hover{background:#fde8f0}.variant-remove:disabled{opacity:.35;cursor:not-allowed}
+.variant-row-actions{display:flex;align-items:stretch}.variant-move,.variant-remove{display:grid;width:30px;height:36px;border:0;border-left:1px solid #eadfe4;border-radius:0;background:#fff;color:#765766;padding:6px;place-items:center}.variant-move:hover{background:#f7f0f4}.variant-move:disabled,.variant-remove:disabled{opacity:.3;cursor:not-allowed}.variant-remove{width:34px;background:#fff7fa;color:#a32d58;padding:8px}.variant-remove svg{width:17px;height:17px;fill:currentColor}.variant-remove:hover{background:#fde8f0}
 .variant-add{margin-top:10px;border:1px solid #d99ab8;background:#fff;color:var(--pink)}
 @media(max-width:700px){.variant-table-editor{padding:11px}.variant-table-editor input:not([type="hidden"]){font-size:13px}.variant-table-editor th{font-size:10px}}
 

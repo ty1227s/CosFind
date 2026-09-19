@@ -6,7 +6,7 @@ import {operatingPeriodQuery} from "@/lib/store-operating-period";
 export const supabaseRepository:CatalogRepository={
  async searchProducts(query){
   const db=createSupabaseBrowserClient();
-  let request=db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active",true).order("name").limit(500);
+  let request=db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active",true).order("name").order("created_at",{referencedTable:"product_variants"}).limit(500);
   const keyword=query.trim();
   if(keyword)request=/^\d+$/.test(keyword)?request.or(`name.ilike.%${keyword}%,jan_code.eq.${keyword},additional_jan_codes.cs.{${keyword}}`):request.ilike("name",`%${keyword.replaceAll("%","\\%").replaceAll("_","\\_")}%`);
   const{data,error}=await request;if(error)throw error;

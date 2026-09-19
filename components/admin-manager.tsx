@@ -311,8 +311,30 @@ function StoreTypeBadge({ type }: { type: string }) { const color = getStoreType
 function ProductVariantsEditor({ variants }: { variants: ProductVariant[] }) {
   const emptyRow = (): ProductVariant => ({ id: crypto.randomUUID(), name: "", colorCode: "", janCode: "", releaseDate: "" });
   const [rows, setRows] = useState<ProductVariant[]>(() => variants.length ? variants : [emptyRow()]);
+  const [draggingId, setDraggingId] = useState("");
+  const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(null);
   const update = (id: string, key: "name" | "colorCode" | "janCode" | "releaseDate", value: string) => setRows(items => items.map(item => item.id === id ? { ...item, [key]: value } : item));
   const addRow = () => setRows(items => [...items, emptyRow()]);
+  const moveRow = (id: string, targetId: string, after = false) => setRows(items => {
+    const from = items.findIndex(item => item.id === id);
+    const target = items.findIndex(item => item.id === targetId);
+    if (from < 0 || target < 0 || from === target) return items;
+    const next = [...items];
+    const [moving] = next.splice(from, 1);
+    let destination = next.findIndex(item => item.id === targetId);
+    if (after) destination += 1;
+    next.splice(destination, 0, moving);
+    return next;
+  });
+  const moveBy = (id: string, amount: -1 | 1) => setRows(items => {
+    const from = items.findIndex(item => item.id === id);
+    const destination = from + amount;
+    if (from < 0 || destination < 0 || destination >= items.length) return items;
+    const next = [...items];
+    [next[from], next[destination]] = [next[destination], next[from]];
+    return next;
+  });
+  const finishDrag = () => { setDraggingId(""); setDropTarget(null); };
   const addRowOnEnter = (event: ReactKeyboardEvent<HTMLInputElement>, index: number) => {
     if (event.key !== "Enter" || index !== rows.length - 1) return;
     event.preventDefault();
@@ -324,13 +346,14 @@ function ProductVariantsEditor({ variants }: { variants: ProductVariant[] }) {
   return <fieldset className="variant-table-editor">
     <legend>カラー / バリエーション</legend>
     <input type="hidden" name="variants" value={serialized}/>
-    <div className="variant-table-scroll"><table><thead><tr><th className="variant-row-number" aria-label="行番号"></th><th>カラー名</th><th>色番</th><th>JAN</th><th>発売日</th><th>操作</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.id}>
-      <th className="variant-row-number" scope="row">{index + 1}</th>
+    <p className="variant-reorder-help">左端のハンドルをドラッグして並び替えできます。矢印ボタンでも移動できます。</p>
+    <div className="variant-table-scroll"><table><thead><tr><th className="variant-row-number" aria-label="並び順"></th><th>カラー名</th><th>色番</th><th>JAN</th><th>発売日</th><th>操作</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.id} className={`${draggingId===row.id?"is-dragging":""}${dropTarget?.id===row.id?(dropTarget.after?" drop-after":" drop-before"):""}`} onDragOver={event=>{if(!draggingId||draggingId===row.id)return;event.preventDefault();event.dataTransfer.dropEffect="move";const rect=event.currentTarget.getBoundingClientRect();setDropTarget({id:row.id,after:event.clientY>rect.top+rect.height/2})}} onDrop={event=>{event.preventDefault();if(draggingId&&draggingId!==row.id)moveRow(draggingId,row.id,dropTarget?.id===row.id&&dropTarget.after);finishDrag()}}>
+      <th className="variant-row-number" scope="row"><button type="button" className="variant-drag-handle" draggable={rows.length>1} disabled={rows.length===1} aria-label={`${index + 1}行目をドラッグして並び替え`} title="ドラッグして並び替え" onDragStart={event=>{setDraggingId(row.id);event.dataTransfer.effectAllowed="move";event.dataTransfer.setData("text/plain",row.id)}} onDragEnd={finishDrag}>⠿</button><span>{index + 1}</span></th>
       <td><input data-variant-row={index} aria-label={`${index + 1}行目のカラー名`} value={row.name} size={size(row.name, 10, 34)} onKeyDown={event => addRowOnEnter(event, index)} onChange={event => update(row.id, "name", event.target.value)} placeholder="カラー名"/></td>
       <td><input aria-label={`${index + 1}行目の色番`} value={row.colorCode || ""} size={size(row.colorCode, 3, 10)} onKeyDown={event => addRowOnEnter(event, index)} onChange={event => update(row.id, "colorCode", event.target.value)} placeholder="色番"/></td>
       <td><input aria-label={`${index + 1}行目のJAN`} value={row.janCode} size={size(row.janCode, 13, 20)} onKeyDown={event => addRowOnEnter(event, index)} onChange={event => update(row.id, "janCode", event.target.value)} inputMode="numeric" placeholder="JANコード"/></td>
       <td><input aria-label={`${index + 1}行目の発売日`} type="date" value={row.releaseDate || ""} onKeyDown={event => addRowOnEnter(event, index)} onChange={event => update(row.id, "releaseDate", event.target.value)}/></td>
-      <td><button type="button" className="variant-remove" aria-label={`${index + 1}行目を削除`} title="削除" disabled={rows.length === 1} onClick={() => setRows(items => items.filter(item => item.id !== row.id))}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h1v-7h-1Zm3 0v7h1v-7h-1Z"/></svg></button></td>
+      <td><span className="variant-row-actions"><button type="button" className="variant-move" aria-label={`${index + 1}行目を上へ移動`} title="上へ移動" disabled={index===0} onClick={()=>moveBy(row.id,-1)}>↑</button><button type="button" className="variant-move" aria-label={`${index + 1}行目を下へ移動`} title="下へ移動" disabled={index===rows.length-1} onClick={()=>moveBy(row.id,1)}>↓</button><button type="button" className="variant-remove" aria-label={`${index + 1}行目を削除`} title="削除" disabled={rows.length === 1} onClick={() => setRows(items => items.filter(item => item.id !== row.id))}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-2 6h10l-1 11H8L7 9Zm3 2v7h1v-7h-1Zm3 0v7h1v-7h-1Z"/></svg></button></span></td>
     </tr>)}</tbody></table></div>
     <button type="button" className="variant-add" onClick={addRow}>＋ カラーを追加</button>
   </fieldset>;

@@ -17,7 +17,7 @@ type MapReportRow = { store_id:string;status:"available"|"low_stock"|"sold_out"|
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; const db = createSupabaseAdminClient();
-  const productResult = await db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("id", id).eq("is_active", true).maybeSingle();
+  const productResult = await db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("id", id).eq("is_active", true).order("created_at", { referencedTable: "product_variants" }).maybeSingle();
   if (productResult.error || !productResult.data) notFound();
   const product = productResult.data as unknown as ProductRow; const brand = Array.isArray(product.brands) ? product.brands[0]?.name ?? "" : product.brands?.name ?? "";
   const [reportsResult, allStoresResult, mapReportsResult, metadataResult] = await Promise.all([
