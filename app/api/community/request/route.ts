@@ -24,7 +24,7 @@ function sanitizeProduct(payload: Record<string, unknown>) {
   const reportMethod = text(payload.reportMethod, 50);
   const reportComment = text(payload.reportComment, 200);
   const hasReport = Boolean(reportStoreId || reportMethod || reportComment);
-  if (!brand || !name || !category || !PRODUCT_CATEGORIES.has(category) || janCode === null || !variantName || colorCode === null || variantJanCode === null || pa === null) return null;
+  if (!brand || !name || !category || !PRODUCT_CATEGORIES.has(category) || janCode === null || variantName === null || colorCode === null || variantJanCode === null || pa === null) return null;
   if (hasReport && (!reportStoreId || !UUID_PATTERN.test(reportStoreId) || !reportMethod || !REPORT_METHODS.has(reportMethod) || reportComment === null)) return null;
   return { brand, name, category, janCode, variantName, colorCode, variantJanCode, pa, ...(hasReport ? { reportStoreId, reportMethod, reportComment: reportComment || "", reportReportedAt: new Date().toISOString() } : {}) };
 }

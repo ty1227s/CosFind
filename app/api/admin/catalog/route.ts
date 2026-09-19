@@ -155,7 +155,7 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "不正なリクエストです" }, { status: 403 });
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
-  const body = await request.json().catch(() => null) as { kind?: "product" | "store"; id?: string; status?: "approved" | "rejected"; productId?:string; productVariantId?:string } | null;
+  const body = await request.json().catch(() => null) as { kind?: "product" | "store"; id?: string; status?: "approved" | "rejected"; productId?:string; productVariantId?:string|null } | null;
   if (!body || (body.kind !== "product" && body.kind !== "store") || !body.id || !UUID_PATTERN.test(body.id) || (body.status !== "approved" && body.status !== "rejected")) return NextResponse.json({ error: "更新内容が不正です" }, { status: 400 });
   const table = body.kind === "product" ? "product_requests" : "store_requests";
   const db=createSupabaseAdminClient();
@@ -170,11 +170,11 @@ export async function PATCH(request: Request) {
     const storeId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";const method=typeof payload.reportMethod==="string"?payload.reportMethod:"";
     if(storeId){
       const methods=new Set(["store_visit","staff_confirmation","phone","official_information"]);
-      if(!body.productId||!UUID_PATTERN.test(body.productId)||!body.productVariantId||!UUID_PATTERN.test(body.productVariantId)||!UUID_PATTERN.test(storeId)||!methods.has(method)){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告へ反映する商品・カラー・店舗を確認できませんでした"},{status:400});}
-      const [product,variant,store]=await Promise.all([db.from("products").select("id").eq("id",body.productId).eq("is_active",true).maybeSingle(),db.from("product_variants").select("id").eq("id",body.productVariantId).eq("product_id",body.productId).maybeSingle(),operatingPeriodQuery(db.from("stores").select("id").eq("id",storeId).eq("is_active",true)).maybeSingle()]);
-      if(product.error||variant.error||store.error||!product.data||!variant.data||!store.data){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告の対象を確認できませんでした"},{status:400});}
+      if(!body.productId||!UUID_PATTERN.test(body.productId)||(body.productVariantId!=null&&!UUID_PATTERN.test(body.productVariantId))||!UUID_PATTERN.test(storeId)||!methods.has(method)){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告へ反映する商品・店舗を確認できませんでした"},{status:400});}
+      const [product,variant,store]=await Promise.all([db.from("products").select("id").eq("id",body.productId).eq("is_active",true).maybeSingle(),body.productVariantId?db.from("product_variants").select("id").eq("id",body.productVariantId).eq("product_id",body.productId).maybeSingle():Promise.resolve({data:null,error:null}),operatingPeriodQuery(db.from("stores").select("id").eq("id",storeId).eq("is_active",true)).maybeSingle()]);
+      if(product.error||variant.error||store.error||!product.data||(body.productVariantId&&!variant.data)||!store.data){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告の対象を確認できませんでした"},{status:400});}
       const comment=typeof payload.reportComment==="string"?payload.reportComment.slice(0,200)||null:null;const reportedAt=typeof payload.reportReportedAt==="string"&&!Number.isNaN(Date.parse(payload.reportReportedAt))?payload.reportReportedAt:pending.data.created_at;
-      const report=await db.from("stock_reports").insert({product_id:body.productId,product_variant_id:body.productVariantId,store_id:storeId,user_id:pending.data.user_id,status:"available",confirmation_method:method,comment,reported_at:reportedAt});
+      const report=await db.from("stock_reports").insert({product_id:body.productId,product_variant_id:body.productVariantId||null,store_id:storeId,user_id:pending.data.user_id,status:"available",confirmation_method:method,comment,reported_at:reportedAt});
       if(report.error){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"商品は登録しましたが、在庫報告への反映に失敗しました。もう一度承認してください"},{status:500});}
     }
   }
