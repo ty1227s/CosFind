@@ -31,7 +31,9 @@ npm run dev
 
 Supabaseでプロジェクトを作成後、`supabase link --project-ref <ref>`、`supabase db push` の順に実行し、`supabase/migrations` 内の全マイグレーションを適用します。Supabase Dashboardの Authentication → Sign In / Providers → Email でEmail providerと「Confirm email」を有効化してください。CosFindは確認メール必須としており、Confirm emailが無効な環境では新規登録を完了させません。
 
-新規登録の確認メールを利用するには、Authentication → URL Configuration のRedirect URLsへ、本番URLの `/login`（例: `https://<公開ドメイン>/login`）とローカル確認用の `http://localhost:3000/login` を追加してください。ユーザーは登録フォーム送信後、メール内の確認リンクを開いてからログインします。
+新規登録の確認メールを利用するには、Authentication → URL Configuration のRedirect URLsへ、本番URLの `/auth/confirm`（例: `https://<公開ドメイン>/auth/confirm`）とローカル確認用の `http://localhost:3000/auth/confirm` を追加してください。ユーザーは登録フォーム送信後、メール内の確認リンクを開いてからログインします。
+
+確認メールを日本語化するには、Authentication → Email Templates → Confirm signupを開き、件名を「【CosFind】メールアドレスの確認」に変更し、本文へ [`supabase/templates/confirmation.html`](./supabase/templates/confirmation.html) の内容を貼り付けます。テンプレート中の `{{ .ConfirmationURL }}` は変更しないでください。
 
 パスワード再設定メールを利用するには、Supabase Dashboardの Authentication → URL Configuration で、本番URLの `/reset-password`（例: `https://<公開ドメイン>/reset-password`）とローカル確認用の `http://localhost:3000/reset-password` をRedirect URLsへ追加してください。画面上では、入力されたメールアドレスの登録有無を表示しません。
 

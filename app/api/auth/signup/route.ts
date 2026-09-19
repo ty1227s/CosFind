@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   if (existing.error) return redirect(request, "server");
   if (existing.data) return redirect(request, "username_taken");
   const auth = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-  const confirmationRedirect = `${new URL(request.url).origin}/login?registered=confirmed`;
+  const confirmationRedirect = `${new URL(request.url).origin}/auth/confirm`;
   const created = await auth.auth.signUp({ email, password, options: { emailRedirectTo: confirmationRedirect, data: { username, display_name: username, avatar: "✨" } } });
   if (created.error) return redirect(request, created.error.message.toLowerCase().includes("registered") ? "email_taken" : "create");
   if (!created.data.user) return redirect(request, "create");
