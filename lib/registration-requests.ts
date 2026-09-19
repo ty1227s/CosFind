@@ -1,4 +1,4 @@
-export type ProductRegistrationRequest = { id: string; createdAt: string; brand: string; name: string; category: string; janCode: string; pa?: "+" | "++" | "+++" | "++++" | ""; variantName: string; colorCode: string; variantJanCode: string; status: "pending" };
+export type ProductRegistrationRequest = { id: string; createdAt: string; brand: string; name: string; category: string; janCode: string; pa?: "+" | "++" | "+++" | "++++" | ""; variantName: string; colorCode: string; variantJanCode: string; status: "pending"; submittedByUserId?: string; reportStoreId?: string; reportStoreName?: string; reportMethod?: string; reportComment?: string; reportReportedAt?: string };
 export type StoreRegistrationRequest = { id: string; createdAt: string; name: string; chain: string; type: string; address: string; latitude: number; longitude: number; status: "pending" };
 
 export const REQUEST_KEYS = { products: "cosfind_product_requests_v1", stores: "cosfind_store_requests_v1" } as const;

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, getUserPoints } from "@/lib/server/current-user";
 import { clientAddress, consumeRateLimit, isSameOrigin } from "@/lib/server/security";
-import { finiteCoordinate, optionalJan, text } from "@/lib/server/validation";
+import { finiteCoordinate, optionalJan, text, UUID_PATTERN } from "@/lib/server/validation";
 import { PRODUCT_CATEGORY_GROUPS } from "@/lib/product-categories";
 import { STORE_TYPES } from "@/lib/store-types";
+import { operatingPeriodQuery } from "@/lib/store-operating-period";
 
 const PRODUCT_CATEGORIES = new Set<string>(PRODUCT_CATEGORY_GROUPS.flatMap((group) => group.categories));
 const STORE_TYPE_SET = new Set<string>(STORE_TYPES);
+const REPORT_METHODS = new Set(["store_visit", "staff_confirmation", "phone", "official_information"]);
 
 function sanitizeProduct(payload: Record<string, unknown>) {
   const brand = text(payload.brand, 100);
@@ -18,8 +20,13 @@ function sanitizeProduct(payload: Record<string, unknown>) {
   const colorCode = text(payload.colorCode, 40);
   const variantJanCode = optionalJan(payload.variantJanCode);
   const pa = typeof payload.pa === "string" && ["", "+", "++", "+++", "++++"].includes(payload.pa) ? payload.pa : null;
+  const reportStoreId = text(payload.reportStoreId, 64);
+  const reportMethod = text(payload.reportMethod, 50);
+  const reportComment = text(payload.reportComment, 200);
+  const hasReport = Boolean(reportStoreId || reportMethod || reportComment);
   if (!brand || !name || !category || !PRODUCT_CATEGORIES.has(category) || janCode === null || !variantName || colorCode === null || variantJanCode === null || pa === null) return null;
-  return { brand, name, category, janCode, variantName, colorCode, variantJanCode, pa };
+  if (hasReport && (!reportStoreId || !UUID_PATTERN.test(reportStoreId) || !reportMethod || !REPORT_METHODS.has(reportMethod) || reportComment === null)) return null;
+  return { brand, name, category, janCode, variantName, colorCode, variantJanCode, pa, ...(hasReport ? { reportStoreId, reportMethod, reportComment: reportComment || "", reportReportedAt: new Date().toISOString() } : {}) };
 }
 
 function sanitizeStore(payload: Record<string, unknown>) {
@@ -49,6 +56,10 @@ export async function POST(request: Request) {
   if (profile.error || profile.data?.status !== "active" || profile.data.posting_suspended) return NextResponse.json({ error: "現在このアカウントから申請できません" }, { status: 403 });
   const payload = body.kind === "product" ? sanitizeProduct(body.payload as Record<string, unknown>) : body.kind === "store" ? sanitizeStore(body.payload as Record<string, unknown>) : null;
   if (!payload) return NextResponse.json({ error: "申請内容を確認してください" }, { status: 400 });
+  if (body.kind === "product" && "reportStoreId" in payload && payload.reportStoreId) {
+    const store = await operatingPeriodQuery(db.from("stores").select("id").eq("id", payload.reportStoreId).eq("is_active", true)).maybeSingle();
+    if (store.error || !store.data) return NextResponse.json({ error: "報告先の店舗を確認できませんでした" }, { status: 400 });
+  }
   const table = body.kind === "product" ? "product_requests" : "store_requests";
   const saved = await db.from(table).insert({ user_id: user.id, payload, status: "pending" });
   if (saved.error) return NextResponse.json({ error: "申請を保存できませんでした" }, { status: 500 });

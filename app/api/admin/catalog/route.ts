@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUser, isAuthenticatedAdmin, isSameOrigin } from "@/lib/server/security";
 import { UUID_PATTERN } from "@/lib/server/validation";
-import { isValidOperatingDate } from "@/lib/store-operating-period";
+import { isValidOperatingDate, operatingPeriodQuery } from "@/lib/store-operating-period";
 
 type Entity = "brand" | "chain" | "product" | "store";
 type Brand = { name: string; nameKana?: string };
@@ -29,7 +29,7 @@ export async function GET() {
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
       db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name"),
       db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name"),
-      db.from("product_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
+      db.from("product_requests").select("id,user_id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
       db.from("store_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
     ]);
     const error = brandsResult.error || chainsResult.error || productsResult.error || storesResult.error || productRequestsResult.error || storeRequestsResult.error;
@@ -50,13 +50,14 @@ export async function GET() {
     }
     type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
     const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
+    const requestStoreNames=new Map((storesResult.data??[]).map(store=>[store.id,[store.chain_name,store.name].filter(Boolean).join(" ")]));
     return NextResponse.json({
       ok: true,
       brands: (brandsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, nameKana: row.name_kana ?? "" })),
       chains: (chainsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, storeType: row.store_type })),
       products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })) })),
       stores: (storesResult.data ?? []).map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
-      productRequests: (productRequestsResult.data ?? []).map((row) => ({ ...((row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {}), id: row.id, createdAt: row.created_at, status: "pending" })),
+      productRequests: (productRequestsResult.data ?? []).map((row) => {const payload=(row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {};const reportStoreId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";return {...payload,id:row.id,submittedByUserId:row.user_id,reportStoreName:reportStoreId?requestStoreNames.get(reportStoreId)??"店舗情報なし":"",createdAt:row.created_at,status:"pending"}}),
       storeRequests: (storeRequestsResult.data ?? []).map((row) => ({ ...((row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {}), id: row.id, createdAt: row.created_at, status: "pending" })),
     });
   } catch (error) {
@@ -105,6 +106,8 @@ export async function POST(request: Request) {
       const removed = await db.from("product_variants").delete().eq("product_id", productId); if (removed.error) throw removed.error;
       const variants = row.variants.filter((variant) => variant.name.trim()).map((variant) => ({ product_id: productId, variant_name: variant.name.trim(), color_code: variant.colorCode || null, jan_code: variant.janCode || null,release_date:variant.releaseDate||null }));
       if (variants.length) { const inserted = await db.from("product_variants").insert(variants); if (inserted.error) throw inserted.error; }
+      const confirmedVariants=await db.from("product_variants").select("id,variant_name,color_code,jan_code,release_date").eq("product_id",productId).order("created_at");if(confirmedVariants.error)throw confirmedVariants.error;
+      savedData={id:productId,brand:row.brand,name:row.name.trim(),category:row.category,additionalCategories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))],janCode:primaryJanCode??"",additionalJanCodes,releaseDate:row.releaseDate||"",spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,variants:(confirmedVariants.data??[]).map(variant=>({id:variant.id,name:variant.variant_name,colorCode:variant.color_code??"",janCode:variant.jan_code??"",releaseDate:variant.release_date??""}))};
     } else {
       const row = body.data as Store; const previous = body.previous as Store | undefined; let chainId: string | null = null;
       const openingDate = row.openingDate?.trim() || null;
@@ -152,11 +155,28 @@ export async function DELETE(request: Request) {
 export async function PATCH(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "不正なリクエストです" }, { status: 403 });
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
-  const body = await request.json().catch(() => null) as { kind?: "product" | "store"; id?: string; status?: "approved" | "rejected" } | null;
+  const body = await request.json().catch(() => null) as { kind?: "product" | "store"; id?: string; status?: "approved" | "rejected"; productId?:string; productVariantId?:string } | null;
   if (!body || (body.kind !== "product" && body.kind !== "store") || !body.id || !UUID_PATTERN.test(body.id) || (body.status !== "approved" && body.status !== "rejected")) return NextResponse.json({ error: "更新内容が不正です" }, { status: 400 });
   const table = body.kind === "product" ? "product_requests" : "store_requests";
-  const result = await createSupabaseAdminClient().from(table).update({ status: body.status }).eq("id", body.id).eq("status", "pending").select("id").maybeSingle();
+  const db=createSupabaseAdminClient();
+  const pending=await db.from(table).select("id,user_id,payload,created_at").eq("id",body.id).eq("status","pending").maybeSingle();
+  if(pending.error)return NextResponse.json({error:"申請内容を確認できませんでした"},{status:500});
+  if(!pending.data)return NextResponse.json({ error: "審査待ちの申請が見つかりません" }, { status: 404 });
+  const result = await db.from(table).update({ status: body.status }).eq("id", body.id).eq("status", "pending").select("id").maybeSingle();
   if (result.error) return NextResponse.json({ error: "申請状態を更新できませんでした" }, { status: 500 });
   if (!result.data) return NextResponse.json({ error: "審査待ちの申請が見つかりません" }, { status: 404 });
+  if(body.kind==="product"&&body.status==="approved"){
+    const payload=pending.data.payload&&typeof pending.data.payload==="object"&&!Array.isArray(pending.data.payload)?pending.data.payload as Record<string,unknown>:{};
+    const storeId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";const method=typeof payload.reportMethod==="string"?payload.reportMethod:"";
+    if(storeId){
+      const methods=new Set(["store_visit","staff_confirmation","phone","official_information"]);
+      if(!body.productId||!UUID_PATTERN.test(body.productId)||!body.productVariantId||!UUID_PATTERN.test(body.productVariantId)||!UUID_PATTERN.test(storeId)||!methods.has(method)){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告へ反映する商品・カラー・店舗を確認できませんでした"},{status:400});}
+      const [product,variant,store]=await Promise.all([db.from("products").select("id").eq("id",body.productId).eq("is_active",true).maybeSingle(),db.from("product_variants").select("id").eq("id",body.productVariantId).eq("product_id",body.productId).maybeSingle(),operatingPeriodQuery(db.from("stores").select("id").eq("id",storeId).eq("is_active",true)).maybeSingle()]);
+      if(product.error||variant.error||store.error||!product.data||!variant.data||!store.data){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告の対象を確認できませんでした"},{status:400});}
+      const comment=typeof payload.reportComment==="string"?payload.reportComment.slice(0,200)||null:null;const reportedAt=typeof payload.reportReportedAt==="string"&&!Number.isNaN(Date.parse(payload.reportReportedAt))?payload.reportReportedAt:pending.data.created_at;
+      const report=await db.from("stock_reports").insert({product_id:body.productId,product_variant_id:body.productVariantId,store_id:storeId,user_id:pending.data.user_id,status:"available",confirmation_method:method,comment,reported_at:reportedAt});
+      if(report.error){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"商品は登録しましたが、在庫報告への反映に失敗しました。もう一度承認してください"},{status:500});}
+    }
+  }
   return NextResponse.json({ ok: true });
 }
