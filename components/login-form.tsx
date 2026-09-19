@@ -12,7 +12,6 @@ const signupErrors: Record<string, string> = {
   password_match: "確認用パスワードが一致しません。",
   username_taken: "そのユーザー名はすでに使用されています。",
   email_taken: "そのメールアドレスはすでに登録されています。",
-  email_confirmation_required: "メール確認機能を利用できません。運営側の認証設定をご確認ください。",
   config: "ユーザー登録の設定が完了していません。",
   profile: "プロフィールを作成できませんでした。もう一度お試しください。",
   create: "ユーザーを登録できませんでした。入力内容をご確認ください。",
@@ -37,14 +36,14 @@ export function LoginForm() {
         {signup ? <>
           <p className="eyebrow">CREATE ACCOUNT</p>
           <h1>新規ユーザー登録</h1>
-          <p>登録後に確認メールを送信します。メール内のリンクを開くと登録が完了します。投稿者情報は一般ユーザーには表示しません。</p>
+          <p>ユーザーID・メールアドレス・パスワードを登録すると、そのままCosFindを利用できます。投稿者情報は一般ユーザーには表示しません。</p>
           <form action="/api/auth/signup" method="post">
             <label className="field"><span>ユーザー名</span><input name="username" autoComplete="username" minLength={3} maxLength={24} pattern="[a-z0-9_]+" required placeholder="cosme_user" /><small>半角英小文字・数字・_ の3～24文字</small></label>
             <label className="field"><span>メールアドレス</span><input name="email" type="email" autoComplete="email" required /></label>
             <label className="field"><span>パスワード</span><input name="password" type="password" autoComplete="new-password" minLength={8} required /><small>8文字以上</small></label>
             <label className="field"><span>パスワード（確認）</span><input name="passwordConfirmation" type="password" autoComplete="new-password" minLength={8} required /></label>
             {error && <p className="form-error">{signupErrors[error] || "登録できませんでした。もう一度お試しください。"}</p>}
-            <button className="submit" type="submit">確認メールを送信</button>
+            <button className="submit" type="submit">登録して始める</button>
           </form>
         </> : <>
           <p className="eyebrow">WELCOME BACK</p>
@@ -53,7 +52,7 @@ export function LoginForm() {
           <form action="/api/auth/login" method="post">
             <label className="field"><span>ユーザー名またはメールアドレス</span><input name="identifier" autoComplete="username" minLength={3} required placeholder="cosme_user または mail@example.com" /></label>
             <label className="field"><span>パスワード</span><input name="password" type="password" autoComplete="current-password" required /></label>
-            {registered && <p className="form-success">{registered === "check-email" ? "確認メールを送信しました。メール内のリンクを開いて登録を完了してください。届かない場合は迷惑メールフォルダもご確認ください。" : "メールアドレスの確認が完了しました。ユーザー名またはメールアドレスでログインしてください。"}</p>}
+            {registered && <p className="form-success">登録が完了しました。ユーザー名またはメールアドレスでログインしてください。</p>}
             {passwordReset === "success" && <p className="form-success">パスワードを更新しました。新しいパスワードでログインしてください。</p>}
             {error && !params.get("mode") && <p className="form-error">{error === "config" ? "本番ログインの設定が必要です。" : "ユーザー名・メールアドレスまたはパスワードが違います。"}</p>}
             <button className="submit" type="submit">ログイン</button>
