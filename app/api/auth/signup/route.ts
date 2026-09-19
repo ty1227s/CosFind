@@ -28,20 +28,21 @@ export async function POST(request: Request) {
   if (existing.error) return redirect(request, "server");
   if (existing.data) return redirect(request, "username_taken");
   const auth = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
-  const created = await auth.auth.signUp({ email, password, options: { data: { username, display_name: username, avatar: "✨" } } });
+  const confirmationRedirect = `${new URL(request.url).origin}/login?registered=confirmed`;
+  const created = await auth.auth.signUp({ email, password, options: { emailRedirectTo: confirmationRedirect, data: { username, display_name: username, avatar: "✨" } } });
   if (created.error) return redirect(request, created.error.message.toLowerCase().includes("registered") ? "email_taken" : "create");
   if (!created.data.user) return redirect(request, "create");
   if (created.data.user.identities?.length === 0) return redirect(request, "email_taken");
+  // Confirm email が無効だとSupabaseは即時セッションを返す。CosFindではメール確認を必須とし、
+  // 誤設定時に未確認のまま登録を完了させない。
+  if (created.data.session) {
+    await admin.auth.admin.deleteUser(created.data.user.id);
+    return redirect(request, "email_confirmation_required");
+  }
   const profile = await admin.from("profiles").update({ username }).eq("id", created.data.user.id).select("id").maybeSingle();
   if (profile.error || !profile.data) {
     await admin.auth.admin.deleteUser(created.data.user.id);
     return redirect(request, profile.error?.code === "23505" ? "username_taken" : "profile");
   }
-  if (!created.data.session) return NextResponse.redirect(new URL("/login?registered=check-email", request.url), 303);
-
-  const response = NextResponse.redirect(new URL("/", request.url), 303);
-  const secure = new URL(request.url).protocol === "https:";
-  response.cookies.set("sb-access-token", created.data.session.access_token, { httpOnly: true, sameSite: "lax", secure, maxAge: created.data.session.expires_in, path: "/" });
-  response.cookies.set("sb-refresh-token", created.data.session.refresh_token, { httpOnly: true, sameSite: "lax", secure, maxAge: 2592000, path: "/" });
-  return response;
+  return NextResponse.redirect(new URL("/login?registered=check-email", request.url), 303);
 }
