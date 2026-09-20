@@ -445,13 +445,16 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
 .favorite-columns h3>span{min-width:0}
 .favorite-columns h3>a{flex:none;color:var(--pink);font-size:12px;text-decoration:none}
 .favorite-columns h3>a:hover{text-decoration:underline}
-.favorite-management-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:24px 0 20px;padding:6px;border:1px solid var(--line);border-radius:14px;background:#fff}
-.favorite-management-tabs a{display:flex;min-height:48px;align-items:center;justify-content:center;gap:7px;border-radius:10px;color:#6f5663;text-decoration:none;font-weight:800;transition:background-color .2s ease,box-shadow .2s ease,color .2s ease}
+.favorite-management-tabs{position:relative;isolation:isolate;display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:24px 0 20px;padding:4px;border-radius:12px;background:#f3eff1}
+.favorite-management-tabs::before{content:"";position:absolute;z-index:0;top:4px;bottom:4px;left:4px;width:calc((100% - 12px)/2);border-radius:9px;background:#fff;box-shadow:0 3px 10px #4d294214;transform:translateX(0);transition:transform .4s cubic-bezier(.22,1,.36,1)}
+.favorite-management-tabs.show-stores::before{transform:translateX(calc(100% + 4px))}
+.favorite-management-tabs a{position:relative;z-index:1;display:flex;min-height:48px;align-items:center;justify-content:center;gap:7px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:800;transition:color .3s ease}
 .favorite-management-tabs a b{font-size:12px}
-.favorite-management-tabs a:not([aria-current="page"]):hover{background:#fff1f7;color:var(--pink)}
-.favorite-management-tabs a[aria-current="page"]{background:linear-gradient(135deg,var(--pink2),#b51867);color:#fff;box-shadow:0 6px 18px #d12f7b2b}
+.favorite-management-tabs a:not([aria-current="page"]):hover{color:var(--pink)}
+.favorite-management-tabs a[aria-current="page"]{color:var(--pink)}
 .favorite-product-filters{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(150px,1fr) minmax(150px,1fr) auto;gap:10px;align-items:end;margin-bottom:12px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff}.favorite-product-filters label{display:flex;min-width:0;flex-direction:column;gap:5px}.favorite-product-filters label>span{color:var(--muted);font-size:11px;font-weight:800}.favorite-product-filters input,.favorite-product-filters select{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 12px;color:var(--ink);font:inherit}.favorite-product-filters button{min-height:43px;border:1px solid #d9b4c6;border-radius:10px;background:#fff;color:var(--pink);padding:8px 13px;font-weight:800}.favorite-product-filters button:disabled{opacity:.4}.favorite-management-toolbar.selection-only{justify-content:flex-end}.favorite-management-section h2 small{margin-left:9px;color:var(--muted);font-size:11px;font-weight:700}
 @media(max-width:700px){.favorite-management-tabs{margin-top:18px}.favorite-management-tabs a{min-height:44px;padding:7px 5px;flex-direction:column;gap:1px;font-size:13px}.favorite-product-filters{grid-template-columns:1fr 1fr}.favorite-product-filters label:first-child,.favorite-product-filters button{grid-column:1/-1}}
+@media(prefers-reduced-motion:reduce){.favorite-management-tabs::before,.favorite-management-tabs a{transition-duration:.01ms}}
 @media(max-width:700px){.announcement-admin .admin-head{flex-direction:column}.announcement-admin-actions{width:100%}.announcement-admin-actions>*{flex:1}.announcement-admin-list article{flex-direction:column}.announcement-page,.announcement-detail{min-height:calc(100dvh - 60px);padding:24px 12px}.announcement-list>a{padding:20px 17px}.announcement-list h2{font-size:17px}.announcement-list p{margin-right:0}.announcement-list>a>span{position:static;display:block;margin-top:12px}.announcement-detail>article{border-radius:18px;padding:25px 18px}.announcement-detail h1{margin-bottom:22px;padding-bottom:20px}.announcement-body{font-size:14px;line-height:1.9}}
 
 /* Announcements as the eighth admin tab. */

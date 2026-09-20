@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SiteHeader } from "./site-header";
 import { FavoriteButton } from "./favorite-button";
 import { formatStoreName } from "@/lib/store-name";
@@ -12,13 +13,16 @@ type Favorites = { products: ProductFavorite[]; stores: StoreFavorite[] };
 type FavoriteKind = "products" | "stores";
 
 export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
+  const router = useRouter();
   const [favorites, setFavorites] = useState<Favorites | null>(null);
+  const [visibleKind, setVisibleKind] = useState<FavoriteKind>(kind);
   const [query, setQuery] = useState("");
   const [brand, setBrand] = useState("");
   const [category, setCategory] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const navigationTimer = useRef<number | null>(null);
 
   const load = useCallback(() => void fetch("/api/auth/favorites", { cache: "no-store" })
     .then(async (response) => {
@@ -33,6 +37,14 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
     .catch((cause) => setError(cause instanceof Error ? cause.message : "読み込めませんでした")), [kind]);
 
   useEffect(() => { setQuery(""); setBrand(""); setCategory(""); setSelected([]); }, [kind]);
+  useEffect(() => { setVisibleKind(kind); }, [kind]);
+  useEffect(() => {
+    router.prefetch("/profile/favorites/products");
+    router.prefetch("/profile/favorites/stores");
+    return () => {
+      if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current);
+    };
+  }, [router]);
   useEffect(() => { load(); window.addEventListener("cosfind-favorites-updated", load); return () => window.removeEventListener("cosfind-favorites-updated", load); }, [load]);
 
   const keyword = query.trim().toLowerCase();
@@ -76,6 +88,19 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
   const storeCount = favorites?.stores.length ?? 0;
   const productPage = kind === "products";
 
+  function switchFavoritePage(nextKind: FavoriteKind, event: React.MouseEvent<HTMLAnchorElement>) {
+    if (nextKind === kind) return;
+    event.preventDefault();
+    if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current);
+    setVisibleKind(nextKind);
+    const href = `/profile/favorites/${nextKind}`;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      router.push(href);
+      return;
+    }
+    navigationTimer.current = window.setTimeout(() => router.push(href), 320);
+  }
+
   return <>
     <SiteHeader />
     <main className="favorite-management-page">
@@ -84,9 +109,9 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
           <div><p className="eyebrow">MY FAVORITES</p><h1>{productPage ? "お気に入り商品" : "お気に入り店舗"}</h1><p>{productPage ? "登録した商品を確認・整理できます。" : "登録した店舗を確認・整理できます。"}</p></div>
           <Link href="/profile">プロフィールへ戻る</Link>
         </div>
-        <nav className="favorite-management-tabs" aria-label="お気に入りの切り替え">
-          <Link href="/profile/favorites/products" aria-current={productPage ? "page" : undefined}>お気に入り商品 <b>{productCount}/100件</b></Link>
-          <Link href="/profile/favorites/stores" aria-current={!productPage ? "page" : undefined}>お気に入り店舗 <b>{storeCount}/10件</b></Link>
+        <nav className={`favorite-management-tabs${visibleKind === "stores" ? " show-stores" : ""}`} aria-label="お気に入りの切り替え">
+          <Link href="/profile/favorites/products" aria-current={visibleKind === "products" ? "page" : undefined} onClick={(event) => switchFavoritePage("products", event)}>お気に入り商品 <b>{productCount}/100件</b></Link>
+          <Link href="/profile/favorites/stores" aria-current={visibleKind === "stores" ? "page" : undefined} onClick={(event) => switchFavoritePage("stores", event)}>お気に入り店舗 <b>{storeCount}/10件</b></Link>
         </nav>
         {error && <p className="form-error">{error}</p>}
         {!favorites ? <p>読み込み中…</p> : <>
