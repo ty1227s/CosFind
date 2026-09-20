@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       const row = body.data as Product; const previous = body.previous as Product | undefined; const currentBrandId = await getBrandId(row.brand); let productId = "";
       const primaryJanCode = row.janCode?.trim() || null;
       const additionalJanCodes = [...new Set((row.additionalJanCodes??[]).map((code)=>code.trim()).filter((code)=>code&&code!==primaryJanCode))].slice(0,30);
+      if(row.variants.some((variant)=>!variant.name.trim()&&!variant.colorCode?.trim()&&Boolean(variant.janCode?.trim()||variant.releaseDate?.trim())))throw new Error("カラー名または色番がないバリエーション行があります");
       if (previous) {
         const previousBrandId = await getBrandId(previous.brand);
         const found = await db.from("products").select("id").eq("brand_id", previousBrandId).eq("name", previous.name).maybeSingle();

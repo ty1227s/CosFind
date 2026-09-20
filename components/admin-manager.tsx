@@ -210,7 +210,11 @@ export function AdminManager() {
   }
   async function saveProduct(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const id = editingProduct?.id || crypto.randomUUID();
-    const variants = String(form.get("variants") || "").split("\n").map((line) => line.trim()).filter(Boolean).map((line, i) => { const [name = "", colorCode = "", janCode = "", releaseDate = ""] = line.split("|").map((v) => v.trim()); return { id: editingProduct?.variants[i]?.id || crypto.randomUUID(), name, colorCode, janCode, releaseDate }; });
+    const parsedVariants = String(form.get("variants") || "").split("\n").map((line, index) => { const [name = "", colorCode = "", janCode = "", releaseDate = ""] = line.split("|").map((v) => v.trim()); return { id: editingProduct?.variants[index]?.id || crypto.randomUUID(), name, colorCode, janCode, releaseDate, rowNumber: index + 1 }; });
+    const lastUsedRow = parsedVariants.reduce((last, variant, index) => variant.name || variant.colorCode || variant.janCode || variant.releaseDate ? index : last, -1);
+    const invalidRows = parsedVariants.filter((variant, index) => !variant.name && !variant.colorCode && (Boolean(variant.janCode || variant.releaseDate) || index < lastUsedRow));
+    if (invalidRows.length) { const first=invalidRows[0];alert(`カラー / バリエーションの${invalidRows.map((variant)=>variant.rowNumber).join("、")}行目は、カラー名または色番を入力してください。`);event.currentTarget.querySelector<HTMLInputElement>(`[data-variant-row="${first.rowNumber-1}"]`)?.focus();return; }
+    const variants = parsedVariants.filter((variant) => variant.name || variant.colorCode).map(({id,name,colorCode,janCode,releaseDate}) => ({id,name,colorCode,janCode,releaseDate}));
     const pa=String(form.get("pa")||"") as Product["pa"];
     const janCode = String(form.get("janCode") || "").trim();
     const row = { id, brand: String(form.get("brand")), name: String(form.get("name")), category: String(form.get("category")), additionalCategories:form.getAll("additionalCategories").map(String).filter(category=>category!==String(form.get("category"))), janCode, additionalJanCodes:[...new Set(form.getAll("additionalJanCodes").map(value=>String(value).trim()).filter(value=>value&&value!==janCode))].slice(0,30), releaseDate:String(form.get("releaseDate")||""),spf:form.get("spf")===""?null:Number(form.get("spf")),pa:pa||null,createdAt:editingProduct?.createdAt||new Date().toISOString(),variants };
@@ -346,7 +350,7 @@ function ProductVariantsEditor({ variants }: { variants: ProductVariant[] }) {
   return <fieldset className="variant-table-editor">
     <legend>カラー / バリエーション</legend>
     <input type="hidden" name="variants" value={serialized}/>
-    <p className="variant-reorder-help">左端のハンドルをドラッグして並び替えできます。矢印ボタンでも移動できます。</p>
+    <p className="variant-reorder-help">各行はカラー名または色番のどちらかを入力してください。左端のハンドルをドラッグして並び替えできます。</p>
     <div className="variant-table-scroll"><table><thead><tr><th className="variant-row-number" aria-label="並び順"></th><th>カラー名</th><th>色番</th><th>JAN</th><th>発売日</th><th>操作</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.id} className={`${draggingId===row.id?"is-dragging":""}${dropTarget?.id===row.id?(dropTarget.after?" drop-after":" drop-before"):""}`} onDragOver={event=>{if(!draggingId||draggingId===row.id)return;event.preventDefault();event.dataTransfer.dropEffect="move";const rect=event.currentTarget.getBoundingClientRect();setDropTarget({id:row.id,after:event.clientY>rect.top+rect.height/2})}} onDrop={event=>{event.preventDefault();if(draggingId&&draggingId!==row.id)moveRow(draggingId,row.id,dropTarget?.id===row.id&&dropTarget.after);finishDrag()}}>
       <th className="variant-row-number" scope="row"><button type="button" className="variant-drag-handle" draggable={rows.length>1} disabled={rows.length===1} aria-label={`${index + 1}行目をドラッグして並び替え`} title="ドラッグして並び替え" onDragStart={event=>{setDraggingId(row.id);event.dataTransfer.effectAllowed="move";event.dataTransfer.setData("text/plain",row.id)}} onDragEnd={finishDrag}>⠿</button><span>{index + 1}</span></th>
       <td><input data-variant-row={index} aria-label={`${index + 1}行目のカラー名`} value={row.name} size={size(row.name, 10, 34)} onKeyDown={event => addRowOnEnter(event, index)} onChange={event => update(row.id, "name", event.target.value)} placeholder="カラー名"/></td>
