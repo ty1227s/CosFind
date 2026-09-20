@@ -6,7 +6,7 @@ import { SiteHeader } from "./site-header";
 import { FavoriteButton } from "./favorite-button";
 import { formatStoreName } from "@/lib/store-name";
 
-type ProductFavorite = { id: string; name: string; brand: string };
+type ProductFavorite = { id: string; name: string; brand: string; category: string; additionalCategories: string[]; variants: { name: string; colorCode: string }[] };
 type StoreFavorite = { id: string; name: string; chain: string; address: string };
 type Favorites = { products: ProductFavorite[]; stores: StoreFavorite[] };
 type FavoriteKind = "products" | "stores";
@@ -14,6 +14,8 @@ type FavoriteKind = "products" | "stores";
 export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
   const [favorites, setFavorites] = useState<Favorites | null>(null);
   const [query, setQuery] = useState("");
+  const [brand, setBrand] = useState("");
+  const [category, setCategory] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -30,11 +32,17 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
     })
     .catch((cause) => setError(cause instanceof Error ? cause.message : "読み込めませんでした")), [kind]);
 
-  useEffect(() => { setQuery(""); setSelected([]); }, [kind]);
+  useEffect(() => { setQuery(""); setBrand(""); setCategory(""); setSelected([]); }, [kind]);
   useEffect(() => { load(); window.addEventListener("cosfind-favorites-updated", load); return () => window.removeEventListener("cosfind-favorites-updated", load); }, [load]);
 
   const keyword = query.trim().toLowerCase();
-  const products = useMemo(() => (favorites?.products ?? []).filter((item) => `${item.name} ${item.brand}`.toLowerCase().includes(keyword)), [favorites, keyword]);
+  const productBrands = useMemo(() => [...new Set((favorites?.products ?? []).map((item) => item.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja")), [favorites]);
+  const productCategories = useMemo(() => [...new Set((favorites?.products ?? []).flatMap((item) => [item.category, ...(item.additionalCategories ?? [])]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja")), [favorites]);
+  const products = useMemo(() => (favorites?.products ?? []).filter((item) => {
+    const categories = [item.category, ...(item.additionalCategories ?? [])];
+    const searchable = `${item.name} ${item.brand} ${categories.join(" ")} ${(item.variants ?? []).map((variant) => `${variant.name} ${variant.colorCode}`).join(" ")}`.toLowerCase();
+    return searchable.includes(keyword) && (!brand || item.brand === brand) && (!category || categories.includes(category));
+  }), [favorites, keyword, brand, category]);
   const stores = useMemo(() => (favorites?.stores ?? []).filter((item) => `${item.name} ${item.chain} ${item.address}`.toLowerCase().includes(keyword)), [favorites, keyword]);
   const visibleIds = (kind === "products" ? products : stores).map((item) => item.id);
 
@@ -82,8 +90,13 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
         </nav>
         {error && <p className="form-error">{error}</p>}
         {!favorites ? <p>読み込み中…</p> : <>
-          <div className="favorite-management-toolbar">
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={productPage ? "商品名・ブランドで検索" : "店舗名・チェーン名・住所で検索"}/>
+          {productPage ? <div className="favorite-product-filters">
+            <label><span>キーワード</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="商品名・カラー名・色番"/></label>
+            <label><span>ブランド</span><select value={brand} onChange={(event) => setBrand(event.target.value)}><option value="">すべてのブランド</option>{productBrands.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+            <label><span>カテゴリ</span><select value={category} onChange={(event) => setCategory(event.target.value)}><option value="">すべてのカテゴリ</option>{productCategories.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+            <button type="button" disabled={!query&&!brand&&!category} onClick={() => { setQuery(""); setBrand(""); setCategory(""); }}>条件をクリア</button>
+          </div> : <div className="favorite-management-toolbar"><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="店舗名・チェーン名・住所で検索"/></div>}
+          <div className="favorite-management-toolbar selection-only">
             <button type="button" className="danger" disabled={!selected.length || deleting} onClick={() => void removeSelected()}>{deleting ? "削除中…" : `選択した項目を削除（${selected.length}）`}</button>
           </div>
           {productPage ? <FavoriteSection title="お気に入り商品" count={products.length} total={productCount} limit={100} empty="該当するお気に入り商品はありません。" selectAll={() => setSelected(visibleIds)} clear={() => setSelected([])}>
@@ -98,5 +111,5 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
 }
 
 function FavoriteSection({ title, count, total, limit, empty, selectAll, clear, children }: { title: string; count: number; total: number; limit: number; empty: string; selectAll: () => void; clear: () => void; children: React.ReactNode }) {
-  return <section className="favorite-management-section"><header><h2>{title} <b>{total}/{limit}件</b></h2><span><button type="button" onClick={selectAll} disabled={!count}>すべて選択</button><button type="button" onClick={clear}>選択解除</button></span></header>{count ? children : <p className="favorite-empty">{empty}</p>}</section>;
+  return <section className="favorite-management-section"><header><h2>{title} <b>{total}/{limit}件</b>{count!==total&&<small>{count}件表示</small>}</h2><span><button type="button" onClick={selectAll} disabled={!count}>すべて選択</button><button type="button" onClick={clear}>選択解除</button></span></header>{count ? children : <p className="favorite-empty">{empty}</p>}</section>;
 }

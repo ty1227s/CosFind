@@ -17,13 +17,13 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
   const productIds = idsFrom(user.user_metadata?.favorite_product_ids); const storeIds = idsFrom(user.user_metadata?.favorite_store_ids); const db = createSupabaseAdminClient();
   const [productsResult, storesResult] = await Promise.all([
-    productIds.length ? db.from("products").select("id,name,brands(name)").in("id", productIds).eq("is_active", true) : Promise.resolve({ data: [], error: null }),
+    productIds.length ? db.from("products").select("id,name,category,additional_categories,brands(name),product_variants(variant_name,color_code)").in("id", productIds).eq("is_active", true) : Promise.resolve({ data: [], error: null }),
     storeIds.length ? operatingPeriodQuery(db.from("stores").select("id,name,chain_name,address").in("id", storeIds).eq("is_active", true)) : Promise.resolve({ data: [], error: null }),
   ]);
   const metadataResult = storeIds.length ? await db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }) : { data: [], error: null };
   const error = productsResult.error || storesResult.error || metadataResult.error; if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  type ProductRow = { id: string; name: string; brands: { name: string } | { name: string }[] | null };
-  const products = ((productsResult.data ?? []) as unknown as ProductRow[]).map((row) => ({ id: row.id, name: row.name, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "" }));
+  type ProductRow = { id: string; name: string; category: string; additional_categories: string[] | null; brands: { name: string } | { name: string }[] | null; product_variants: { variant_name: string; color_code: string | null }[] };
+  const products = ((productsResult.data ?? []) as unknown as ProductRow[]).map((row) => ({ id: row.id, name: row.name, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", category: row.category, additionalCategories: row.additional_categories ?? [], variants: row.product_variants.map((variant) => ({ name: variant.variant_name, colorCode: variant.color_code ?? "" })) }));
   const customNames = new Map<string, boolean>();
   for (const row of metadataResult.data ?? []) { const payload=row.payload as {storeId?:unknown;customName?:unknown};if(typeof payload.storeId==="string"&&typeof payload.customName==="boolean")customNames.set(payload.storeId,payload.customName); }
   const stores = (storesResult.data ?? []).map((row) => ({ id: row.id, name: row.name, chain: row.chain_name ?? "", customName:customNames.get(row.id)===true, address: row.address }));
