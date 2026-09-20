@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "./site-header";
+import { formatVariantName } from "@/lib/variant-name";
 
 type HistoryKind = "reports" | "products" | "stores";
 type HistoryResponse = { items: Record<string, unknown>[]; page: number; pageSize: number; total: number; totalPages: number; error?: string };
@@ -83,8 +84,9 @@ function ReportRow({ item }: { item: Record<string, unknown> }) {
   const store = relation(item.stores);
   const productId = text(product.id);
   const storeId = text(store.id);
+  const variantLabel = formatVariantName({ name: text(variant.variant_name), colorCode: text(variant.color_code) });
   return <article className="history-row">
-    <div className="history-row-main"><span className="history-status">{statusLabels[text(item.status)] || text(item.status)}</span><h2>{productId ? <Link href={`/products/${productId}`}>{text(product.name) || "商品情報なし"}</Link> : text(product.name) || "商品情報なし"}</h2><p>{text(brand.name)}{variant.variant_name ? ` / ${text(variant.color_code) ? `${text(variant.color_code)} ` : ""}${text(variant.variant_name)}` : ""}</p></div>
+    <div className="history-row-main"><span className="history-status">{statusLabels[text(item.status)] || text(item.status)}</span><h2>{productId ? <Link href={`/products/${productId}`}>{text(product.name) || "商品情報なし"}</Link> : text(product.name) || "商品情報なし"}</h2><p>{text(brand.name)}{(variant.variant_name||variant.color_code) ? ` / ${variantLabel}` : ""}</p></div>
     <dl><div><dt>店舗</dt><dd>{storeId ? <Link href={`/stores/${storeId}`}>{storeName(store)}</Link> : storeName(store)}</dd></div><div><dt>確認方法</dt><dd>{methodLabels[text(item.confirmation_method)] || "—"}</dd></div><div><dt>報告日時</dt><dd>{formatDate(item.reported_at)}</dd></div>{item.comment ? <div className="history-comment"><dt>コメント</dt><dd>{text(item.comment)}</dd></div> : null}</dl>
   </article>;
 }

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       const primaryJanCode=product.janCode?.trim()||null;const additionalJanCodes=[...new Set((product.additionalJanCodes??[]).map(code=>code.trim()).filter(code=>code&&code!==primaryJanCode))].slice(0,30);
       const { data, error } = await db.from("products").upsert({ brand_id: brandId, name: product.name.trim(), category: product.category, additional_categories:[...new Set((product.additionalCategories??[]).filter(category=>category&&category!==product.category))], jan_code:primaryJanCode,additional_jan_codes:additionalJanCodes, is_active: true }, { onConflict: "brand_id,name" }).select("id").single();
       if (error) throw error;
-      for (const variant of product.variants ?? []) { if (!variant.name?.trim()) continue; const { error: variantError } = await db.from("product_variants").upsert({ product_id: data.id, variant_name: variant.name.trim(), color_code: variant.colorCode || null, jan_code: variant.janCode || null }, { onConflict: "product_id,variant_name" }); if (variantError) throw variantError; variantCount += 1; }
+      for (const variant of product.variants ?? []) { const colorCode=variant.colorCode?.trim()||null;const variantName=variant.name?.trim()||colorCode;if(!variantName)continue;const { error: variantError } = await db.from("product_variants").upsert({ product_id: data.id, variant_name: variantName, color_code: colorCode, jan_code: variant.janCode || null }, { onConflict: "product_id,variant_name" }); if (variantError) throw variantError; variantCount += 1; }
     }
     for (const store of stores) {
       if (!store.name?.trim() || !store.address?.trim()) continue;

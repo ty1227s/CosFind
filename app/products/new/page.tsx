@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { NewCosmeticsCalendar } from "@/components/new-cosmetics-calendar";
+import { formatVariantName } from "@/lib/variant-name";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ function ProductCards({ products, selectedDate, today }: { products: NewProduct[
       <small>{brandName(product.brands) || "ブランド未設定"}</small>
       <h3>{product.name}</h3>
       <p>{[product.category,...(product.additional_categories??[])].join(" / ")}</p>
-      {variants.length > 0 && <div className="new-cosmetics-variants"><b>この日の新色</b><span>{variants.map((variant) => `${variant.color_code ? `${variant.color_code} ` : ""}${variant.variant_name}`).join(" / ")}</span></div>}
+      {variants.length > 0 && <div className="new-cosmetics-variants"><b>この日の新色</b><span>{variants.map((variant) => formatVariantName({ name: variant.variant_name, colorCode: variant.color_code })).join(" / ")}</span></div>}
       <time dateTime={selectedDate}>{displayDate(selectedDate)}</time>
     </Link>;
   })}</div>;
