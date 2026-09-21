@@ -54,7 +54,7 @@ export async function BrandIndex({ requested = "" }: { requested?: string }) {
       </details>
       {error ? <p className="form-error">{error}</p> : selected ? <section className="brand-index-results">
         <div><h2>{selected} から始まるブランド</h2><span>{shown.length}件</span></div>
-        {shown.length ? <div className="brand-index-list">{shown.map((brand) => <Link key={brand.id} href={`/products?brand=${encodeURIComponent(brand.name)}`}><b>{brand.name}</b></Link>)}</div> : <p className="brand-index-empty">該当するブランドはありません。</p>}
+        {shown.length ? <div className="brand-index-list">{shown.map((brand) => <Link key={brand.id} href={`/brands/detail/${brand.id}`}><b>{brand.name}</b></Link>)}</div> : <p className="brand-index-empty">該当するブランドはありません。</p>}
       </section> : null}
     </section></main>
   </>;
