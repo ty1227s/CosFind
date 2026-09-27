@@ -20,7 +20,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { stationName, station } = await getStation(params);
   if (!station) return { title: "駅が見つかりません | CosFind", robots: { index: false, follow: false } };
   const title = `${stationName}周辺のコスメ取扱店舗一覧 | CosFind`;
-  const description = `${stationName}周辺でコスメ・スキンケアを取り扱う登録店舗${station.stores.length}件を掲載。店舗名、住所、店舗分類、最近の報告情報を確認できます。`;
+  const lineText = station.lineNames.length ? `${station.lineNames.join("、")}沿線の` : "";
+  const description = `${stationName}周辺で${lineText}コスメ・スキンケアを取り扱う登録店舗${station.stores.length}件を掲載。店舗名、住所、店舗分類、最近の報告情報を確認できます。`;
   const url = `${publicSiteOrigin}${stationHref(stationName)}`;
   return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, type: "website" } };
 }
@@ -46,6 +47,7 @@ export default async function StationPage({ params }: PageProps) {
       <p className="eyebrow">STATION STORE GUIDE</p>
       <h1>{stationName}周辺のコスメ取扱店舗</h1>
       <p>{stationName}が最寄り駅・周辺駅として登録されている、コスメやスキンケアの取扱店舗一覧です。</p>
+      {station.lineNames.length > 0 && <div className="station-line-list" aria-label="乗り入れ路線">{station.lineNames.map((line) => <span key={line}>{line}</span>)}</div>}
       <dl><div><dt>登録店舗</dt><dd>{station.stores.length}<small>件</small></dd></div></dl>
     </header>
     <section className="area-store-section" aria-labelledby="station-store-heading">
@@ -61,4 +63,3 @@ export default async function StationPage({ params }: PageProps) {
     <aside className="area-information-note"><h2>在庫情報について</h2><p>掲載されているのは利用者から寄せられた目撃情報です。現在の在庫を保証するものではありません。</p></aside>
   </main></>;
 }
-

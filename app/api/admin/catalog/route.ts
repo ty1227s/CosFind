@@ -4,12 +4,13 @@ import { getAuthenticatedUser, isAuthenticatedAdmin, isSameOrigin } from "@/lib/
 import { UUID_PATTERN } from "@/lib/server/validation";
 import { isValidOperatingDate, operatingPeriodQuery } from "@/lib/store-operating-period";
 
-type Entity = "brand" | "chain" | "product" | "store";
+type Entity = "brand" | "chain" | "product" | "store" | "station";
 type Brand = { name: string; nameKana?: string };
 type Chain = { name: string; storeType: string };
 type Product = { brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; releaseDate?:string; spf?:number|null; pa?:string|null; variants: { name: string; colorCode?: string; janCode?: string; releaseDate?:string }[] };
 type StoreHours=Record<string,{openingTime:string;closingTime:string;closed:boolean}>;
 type Store = { id?: string; name: string; chain?: string; type: string; address: string; latitude: number; longitude: number; customName?:boolean; stationNames?:string[]; createdAt?:string; provisionalBrandIds?:string[]; openingTime?:string; closingTime?:string; openingDate?:string; closingDate?:string; businessHours?:StoreHours };
+type Station = { name: string; lineNames?: string[] };
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
@@ -37,8 +38,13 @@ export async function GET() {
     if (error) throw error;
     const metadataResult=await db.from("store_requests").select("payload,created_at").eq("status","metadata").order("created_at",{ascending:true});if(metadataResult.error)throw metadataResult.error;
     const storeMetadata=new Map<string,{brandIds:string[];openingTime:string;closingTime:string;businessHours:StoreHours;customName:boolean;stationNames:string[]}>();
+    const stationMetadata=new Map<string,{lineNames:string[];isActive:boolean}>();
     for(const item of metadataResult.data??[]){
-      const payload=item.payload as{storeId?:string;brandIds?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown};
+      const payload=item.payload as{metadataType?:string;storeId?:string;brandIds?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown;stationName?:unknown;lineNames?:unknown;isActive?:unknown};
+      if(payload.metadataType==="station_directory"&&typeof payload.stationName==="string"){
+        stationMetadata.set(payload.stationName,{lineNames:Array.isArray(payload.lineNames)?payload.lineNames.filter((name):name is string=>typeof name==="string"):[],isActive:payload.isActive!==false});
+        continue;
+      }
       if(!payload.storeId)continue;
       const previous=storeMetadata.get(payload.storeId)??{brandIds:[],openingTime:"",closingTime:"",businessHours:{},customName:false,stationNames:[]};
       storeMetadata.set(payload.storeId,{
@@ -50,6 +56,7 @@ export async function GET() {
         stationNames:Array.isArray(payload.stationNames)?payload.stationNames.filter((name):name is string=>typeof name==="string"):previous.stationNames,
       });
     }
+    for(const metadata of storeMetadata.values())for(const stationName of metadata.stationNames)if(!stationMetadata.has(stationName))stationMetadata.set(stationName,{lineNames:[],isActive:true});
     type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
     const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
     const requestStoreNames=new Map((storesResult.data??[]).map(store=>[store.id,[store.chain_name,store.name].filter(Boolean).join(" ")]));
@@ -59,6 +66,7 @@ export async function GET() {
       chains: (chainsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, storeType: row.store_type })),
       products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name === variant.color_code ? "" : variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })) })),
       stores: (storesResult.data ?? []).map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,stationNames:metadata?.stationNames??[],createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
+      stations: [...stationMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name,metadata])=>({name,lineNames:metadata.lineNames})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       productRequests: (productRequestsResult.data ?? []).map((row) => {const payload=(row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {};const reportStoreId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";return {...payload,id:row.id,submittedByUserId:row.user_id,reportStoreName:reportStoreId?requestStoreNames.get(reportStoreId)??"店舗情報なし":"",createdAt:row.created_at,status:"pending"}}),
       storeRequests: (storeRequestsResult.data ?? []).map((row) => ({ ...((row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {}), id: row.id, createdAt: row.created_at, status: "pending" })),
     });
@@ -80,7 +88,7 @@ export async function POST(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "不正なリクエストです" }, { status: 403 });
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
-    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store; previous?: Brand | Chain | Product | Store };
+    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store | Station; previous?: Brand | Chain | Product | Store | Station };
     let savedData: unknown;
     const db = createSupabaseAdminClient();
     if (body.entity === "brand") {
@@ -111,6 +119,25 @@ export async function POST(request: Request) {
       if (variants.length) { const inserted = await db.from("product_variants").insert(variants); if (inserted.error) throw inserted.error; }
       const confirmedVariants=await db.from("product_variants").select("id,variant_name,color_code,jan_code,release_date").eq("product_id",productId).order("created_at");if(confirmedVariants.error)throw confirmedVariants.error;
       savedData={id:productId,brand:row.brand,name:row.name.trim(),category:row.category,additionalCategories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))],janCode:primaryJanCode??"",additionalJanCodes,releaseDate:row.releaseDate||"",spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,variants:(confirmedVariants.data??[]).map(variant=>({id:variant.id,name:variant.variant_name===variant.color_code?"":variant.variant_name,colorCode:variant.color_code??"",janCode:variant.jan_code??"",releaseDate:variant.release_date??""}))};
+    } else if (body.entity === "station") {
+      const row=body.data as Station;const previous=body.previous as Station|undefined;
+      const stationNameRaw=row.name.replace(/[\s　]+/g," ").trim().slice(0,50);
+      const stationName=stationNameRaw.endsWith("駅")?stationNameRaw:`${stationNameRaw}駅`;
+      if(!stationNameRaw)throw new Error("駅名を入力してください");
+      const lineNames=[...new Set((row.lineNames??[]).map(name=>name.replace(/[\s　]+/g," ").trim().slice(0,60)).filter(Boolean))].slice(0,20);
+      const authUser=await getAuthenticatedUser();let ownerId=authUser?.id||"";
+      if(!ownerId){const fallback=await db.from("profiles").select("id").order("created_at",{ascending:true}).limit(1).maybeSingle();if(fallback.error||!fallback.data)throw fallback.error||new Error("駅情報を保存できるプロフィールがありません");ownerId=fallback.data.id}
+      const previousName=previous?.name?.trim()||"";
+      if(previousName&&previousName!==stationName){
+        const metadataRows=await db.from("store_requests").select("user_id,payload,created_at").eq("status","metadata").order("created_at",{ascending:true});if(metadataRows.error)throw metadataRows.error;
+        const latestByStore=new Map<string,{userId:string;payload:Record<string,unknown>}>();
+        for(const item of metadataRows.data??[]){const payload=item.payload&&typeof item.payload==="object"&&!Array.isArray(item.payload)?item.payload as Record<string,unknown>:{};const storeId=typeof payload.storeId==="string"?payload.storeId:"";if(storeId)latestByStore.set(storeId,{userId:item.user_id,payload})}
+        const replacements=[...latestByStore.values()].filter(item=>Array.isArray(item.payload.stationNames)&&item.payload.stationNames.includes(previousName)).map(item=>({user_id:item.userId||ownerId,status:"metadata",payload:{...item.payload,stationNames:[...new Set((item.payload.stationNames as unknown[]).map(name=>name===previousName?stationName:name).filter((name):name is string=>typeof name==="string"))]}}));
+        if(replacements.length){const changed=await db.from("store_requests").insert(replacements);if(changed.error)throw changed.error}
+        const retired=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName:previousName,lineNames:[],isActive:false}});if(retired.error)throw retired.error;
+      }
+      const metadata=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName,lineNames,isActive:true}});if(metadata.error)throw metadata.error;
+      savedData={name:stationName,lineNames};
     } else {
       const row = body.data as Store; const previous = body.previous as Store | undefined; let chainId: string | null = null;
       const openingDate = row.openingDate?.trim() || null;

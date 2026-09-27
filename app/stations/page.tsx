@@ -26,9 +26,8 @@ export default async function StationsPage() {
     {stations.length ? <section className="area-municipality-section" aria-labelledby="station-heading">
       <h2 id="station-heading">駅名を選択</h2>
       <div className="area-municipality-grid station-directory-grid">{stations.map((station) => <Link href={stationHref(station.name)} key={station.name}>
-        <b>{station.name}</b><span>{station.stores.length}<small>件</small></span>
+        <span className="station-directory-name"><b>{station.name}</b>{station.lineNames.length > 0 && <small>{station.lineNames.join("・")}</small>}</span><span>{station.stores.length}<small>件</small></span>
       </Link>)}</div>
     </section> : <div className="area-empty"><b>駅名タグはまだ登録されていません</b><p>管理画面で店舗へ駅名を追加すると、ここに自動表示されます。</p></div>}
   </main></>;
 }
-

@@ -14,7 +14,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { storeId?: unknown; customName?: unknown; stationNames?: unknown };
+type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; lineNames?: unknown; isActive?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -29,7 +29,7 @@ export type AreaStore = {
 };
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
-export type StationDirectory = { name: string; stores: AreaStore[] };
+export type StationDirectory = { name: string; lineNames: string[]; stores: AreaStore[] };
 
 const municipalities = municipalitySource as MunicipalitySource;
 const prefectureOrder = Object.keys(municipalities);
@@ -128,7 +128,20 @@ export function findMunicipality(prefecture: PrefectureDirectory, name: string) 
 }
 
 export const getStationDirectory = cache(async (): Promise<StationDirectory[]> => {
-  const areaDirectory = await getAreaDirectory();
+  const [areaDirectory, stationMetadataResult] = await Promise.all([
+    getAreaDirectory(),
+    createSupabaseAdminClient().from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }),
+  ]);
+  if (stationMetadataResult.error) throw new Error(`駅・路線情報の取得に失敗しました: ${stationMetadataResult.error.message}`);
+  const stationLines = new Map<string, { lineNames: string[]; isActive: boolean }>();
+  for (const row of stationMetadataResult.data ?? []) {
+    const payload = row.payload as MetadataPayload | null;
+    if (payload?.metadataType !== "station_directory" || typeof payload.stationName !== "string") continue;
+    stationLines.set(payload.stationName, {
+      lineNames: Array.isArray(payload.lineNames) ? payload.lineNames.filter((name): name is string => typeof name === "string") : [],
+      isActive: payload.isActive !== false,
+    });
+  }
   const stationStores = new Map<string, Map<string, AreaStore>>();
   for (const prefecture of areaDirectory) {
     for (const municipality of prefecture.municipalities) {
@@ -142,7 +155,8 @@ export const getStationDirectory = cache(async (): Promise<StationDirectory[]> =
     }
   }
   return [...stationStores.entries()]
-    .map(([name, stores]) => ({ name, stores: [...stores.values()].sort((left, right) => left.name.localeCompare(right.name, "ja")) }))
+    .filter(([name]) => stationLines.get(name)?.isActive !== false)
+    .map(([name, stores]) => ({ name, lineNames: stationLines.get(name)?.lineNames ?? [], stores: [...stores.values()].sort((left, right) => left.name.localeCompare(right.name, "ja")) }))
     .sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
 
