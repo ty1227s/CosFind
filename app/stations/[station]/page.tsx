@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-import { decodeAreaSegment, getStationDirectory, publicSiteOrigin, stationHref } from "@/lib/area-directory";
+import { decodeAreaSegment, getStationDirectory, publicSiteOrigin, railwayLineHref, stationHref } from "@/lib/area-directory";
 import { formatStoreName } from "@/lib/store-name";
 import { getStoreTypeCode } from "@/lib/store-type-code";
 import { getStoreTypeColor } from "@/lib/store-type-color";
@@ -47,7 +47,7 @@ export default async function StationPage({ params }: PageProps) {
       <p className="eyebrow">STATION STORE GUIDE</p>
       <h1>{stationName}周辺のコスメ取扱店舗</h1>
       <p>{stationName}が最寄り駅・周辺駅として登録されている、コスメやスキンケアの取扱店舗一覧です。</p>
-      {station.lineNames.length > 0 && <div className="station-line-list" aria-label="乗り入れ路線">{station.lineNames.map((line) => <span key={line}>{line}</span>)}</div>}
+      {station.lineNames.length > 0 && <div className="station-line-list" aria-label="乗り入れ路線">{station.lineNames.map((line) => <Link href={railwayLineHref(line)} key={line}>{line}</Link>)}</div>}
       <dl><div><dt>登録店舗</dt><dd>{station.stores.length}<small>件</small></dd></div></dl>
     </header>
     <section className="area-store-section" aria-labelledby="station-store-heading">

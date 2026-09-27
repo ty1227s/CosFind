@@ -69,6 +69,7 @@ export function HeaderNav() {
       <Link href="/" onClick={() => setMenuOpen(false)}><span>⌖</span>地図検索</Link>
       <Link href="/areas" onClick={() => setMenuOpen(false)}><span>〒</span>市区町村から探す</Link>
       <Link href="/stations" onClick={() => setMenuOpen(false)}><span>駅</span>駅から探す</Link>
+      <Link href="/lines" onClick={() => setMenuOpen(false)}><span>線</span>路線から探す</Link>
       <Link href="/products/new" onClick={() => setMenuOpen(false)}><span>✦</span>新作コスメ情報</Link>
       <Link href="/announcements" onClick={() => setMenuOpen(false)}><span>i</span>お知らせ</Link>
       <a href="https://x.com/CosFindApp" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}><span>𝕏</span>X（@CosFindApp）</a>

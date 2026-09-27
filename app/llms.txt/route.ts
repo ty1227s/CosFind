@@ -22,6 +22,7 @@ export function GET() {
 - ブランド検索: ${publicSiteOrigin}/brands
 - 市区町村別店舗: ${publicSiteOrigin}/areas
 - 駅別店舗: ${publicSiteOrigin}/stations
+- 路線別店舗: ${publicSiteOrigin}/lines
 - 新作コスメ: ${publicSiteOrigin}/products/new
 - お知らせ: ${publicSiteOrigin}/announcements
 - XML sitemap: ${publicSiteOrigin}/sitemap.xml
