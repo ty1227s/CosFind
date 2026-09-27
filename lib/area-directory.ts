@@ -14,7 +14,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; lineName?: unknown; lineNames?: unknown; isActive?: unknown };
+type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; lineName?: unknown; lineNames?: unknown; isActive?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -29,7 +29,7 @@ export type AreaStore = {
 };
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
-export type StationDirectory = { name: string; lineNames: string[]; stores: AreaStore[] };
+export type StationDirectory = { name: string; prefecture: string; lineNames: string[]; stores: AreaStore[] };
 export type RailwayLineDirectory = { name: string; stations: StationDirectory[]; stores: AreaStore[] };
 
 const municipalities = municipalitySource as MunicipalitySource;
@@ -134,11 +134,12 @@ export const getStationDirectory = cache(async (): Promise<StationDirectory[]> =
     createSupabaseAdminClient().from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }),
   ]);
   if (stationMetadataResult.error) throw new Error(`駅・路線情報の取得に失敗しました: ${stationMetadataResult.error.message}`);
-  const stationLines = new Map<string, { lineNames: string[]; isActive: boolean }>();
+  const stationLines = new Map<string, { prefecture: string; lineNames: string[]; isActive: boolean }>();
   for (const row of stationMetadataResult.data ?? []) {
     const payload = row.payload as MetadataPayload | null;
     if (payload?.metadataType !== "station_directory" || typeof payload.stationName !== "string") continue;
     stationLines.set(payload.stationName, {
+      prefecture: typeof payload.prefecture === "string" ? payload.prefecture : "",
       lineNames: Array.isArray(payload.lineNames) ? payload.lineNames.filter((name): name is string => typeof name === "string") : [],
       isActive: payload.isActive !== false,
     });
@@ -157,7 +158,7 @@ export const getStationDirectory = cache(async (): Promise<StationDirectory[]> =
   }
   return [...stationStores.entries()]
     .filter(([name]) => stationLines.get(name)?.isActive !== false)
-    .map(([name, stores]) => ({ name, lineNames: stationLines.get(name)?.lineNames ?? [], stores: [...stores.values()].sort((left, right) => left.name.localeCompare(right.name, "ja")) }))
+    .map(([name, stores]) => ({ name, prefecture: stationLines.get(name)?.prefecture ?? "", lineNames: stationLines.get(name)?.lineNames ?? [], stores: [...stores.values()].sort((left, right) => left.name.localeCompare(right.name, "ja")) }))
     .sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
 
