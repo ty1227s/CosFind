@@ -16,14 +16,15 @@ export async function GET(request: Request) {
   if(!requested.size)return NextResponse.json({stores:{}});
   const result = await db.from("store_requests").select("payload,created_at").eq("status", "metadata").in("payload->>storeId", [...requested]).order("created_at", { ascending: true });
   if (result.error) return NextResponse.json({ error: "店舗付加情報を取得できませんでした" }, { status: 500 });
-  const stores: Record<string, { businessHours: unknown; customName: boolean }> = {};
+  const stores: Record<string, { businessHours: unknown; customName: boolean; stationNames: string[] }> = {};
   for (const row of result.data ?? []) {
-    const payload = row.payload as { storeId?: unknown; businessHours?: unknown; customName?: unknown };
+    const payload = row.payload as { storeId?: unknown; businessHours?: unknown; customName?: unknown; stationNames?: unknown };
     if (typeof payload.storeId === "string" && requested.has(payload.storeId)) {
-      const previous = stores[payload.storeId] ?? { businessHours: {}, customName: false };
+      const previous = stores[payload.storeId] ?? { businessHours: {}, customName: false, stationNames: [] };
       stores[payload.storeId] = {
         businessHours: payload.businessHours && typeof payload.businessHours === "object" ? payload.businessHours : previous.businessHours,
         customName: typeof payload.customName === "boolean" ? payload.customName : previous.customName,
+        stationNames: Array.isArray(payload.stationNames) ? payload.stationNames.filter((name): name is string => typeof name === "string") : previous.stationNames,
       };
     }
   }

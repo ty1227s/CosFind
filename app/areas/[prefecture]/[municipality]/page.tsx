@@ -23,8 +23,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { prefecture, municipality, prefectureName, municipalityName } = await getArea(params);
   if (!prefecture || !municipality) return { title: "地域が見つかりません | CosFind", robots: { index: false, follow: false } };
   const areaName = `${prefectureName}${municipalityName}`;
+  const stations = [...new Set(municipality.stores.flatMap((store) => store.stationNames))].slice(0, 6);
   const title = `${areaName}のコスメ取扱店舗一覧 | CosFind`;
-  const description = `${areaName}でコスメ・スキンケアを取り扱う登録店舗${municipality.stores.length}件を掲載。ドラッグストア、バラエティショップ、スーパーなどの住所と店舗情報を確認できます。`;
+  const stationText = stations.length ? `${stations.join("・")}周辺を含む、` : "";
+  const description = `${areaName}で${stationText}コスメ・スキンケアを取り扱う登録店舗${municipality.stores.length}件を掲載。店舗名、住所、最寄り駅から探せます。`;
   const url = `${publicSiteOrigin}${areaHref(prefectureName, municipalityName)}`;
   return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, type: "website" } };
 }
@@ -44,7 +46,7 @@ export default async function MunicipalityPage({ params }: PageProps) {
         { "@type": "ListItem", position: 4, name: municipalityName, item: pageUrl },
       ] },
       { "@type": "ItemList", name: `${areaName}のコスメ取扱店舗`, numberOfItems: municipality.stores.length, itemListElement: municipality.stores.map((store, index) => ({
-        "@type": "ListItem", position: index + 1, url: `${publicSiteOrigin}/stores/${encodeURIComponent(store.id)}`, name: formatStoreName(store),
+        "@type": "ListItem", position: index + 1, item: { "@type": "Store", url: `${publicSiteOrigin}/stores/${encodeURIComponent(store.id)}`, name: formatStoreName(store), address: store.address, keywords: store.stationNames.join(", ") },
       })) },
     ],
   };
@@ -65,7 +67,7 @@ export default async function MunicipalityPage({ params }: PageProps) {
         const color = getStoreTypeColor(store.type);
         return <Link className="area-store-card" href={`/stores/${encodeURIComponent(store.id)}`} key={store.id} aria-label={`${displayName}の詳細を見る`}>
           <div className="area-store-code" style={{ backgroundColor: color.background, color: color.foreground }}>{getStoreTypeCode(store.type)}</div>
-          <div><p>{store.type}</p><h2>{displayName}</h2><address>{store.address}</address></div>
+          <div><p>{store.type}</p><h2>{displayName}</h2><address>{store.address}</address>{store.stationNames.length>0&&<div className="station-tags compact">{store.stationNames.map(name=><span key={name}>{name}</span>)}</div>}</div>
         </Link>;
       })}</div>
     </section>

@@ -14,7 +14,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { storeId?: unknown; customName?: unknown };
+type MetadataPayload = { storeId?: unknown; customName?: unknown; stationNames?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -25,6 +25,7 @@ export type AreaStore = {
   latitude: number;
   longitude: number;
   customName: boolean;
+  stationNames: string[];
 };
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
@@ -66,11 +67,15 @@ export const getAreaDirectory = cache(async (): Promise<PrefectureDirectory[]> =
   if (storeResult.error) throw new Error(`地域別店舗情報の取得に失敗しました: ${storeResult.error.message}`);
 
   const customNames = new Map<string, boolean>();
+  const stationNames = new Map<string, string[]>();
   for (const row of metadataResult.data ?? []) {
     const payload = row.payload as MetadataPayload | null;
     const storeId = typeof payload?.storeId === "string" ? payload.storeId : "";
     if (storeId && !customNames.has(storeId) && typeof payload?.customName === "boolean") {
       customNames.set(storeId, payload.customName);
+    }
+    if (storeId && !stationNames.has(storeId) && Array.isArray(payload?.stationNames)) {
+      stationNames.set(storeId, payload.stationNames.filter((name): name is string => typeof name === "string"));
     }
   }
 
@@ -89,6 +94,7 @@ export const getAreaDirectory = cache(async (): Promise<PrefectureDirectory[]> =
       latitude: row.latitude,
       longitude: row.longitude,
       customName: customNames.get(row.id) === true,
+      stationNames: stationNames.get(row.id) ?? [],
     });
     prefectureGroup.set(area.municipality, municipalityGroup);
     groups.set(area.prefecture, prefectureGroup);
@@ -135,4 +141,3 @@ export function decodeAreaSegment(segment: string) {
 }
 
 export const publicSiteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || "https://cosfind.ty1227s.workers.dev").replace(/\/$/, "");
-
