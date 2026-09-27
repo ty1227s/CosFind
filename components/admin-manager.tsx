@@ -34,6 +34,16 @@ const seedChains: Chain[] = [...new Set(seedStores.map((s) => s.chain).filter(Bo
 
 type CatalogResponse = { ok?: boolean; brands?: Brand[]; chains?: Chain[]; products?: Product[]; stores?: Store[]; productRequests?: ProductRegistrationRequest[]; storeRequests?: StoreRegistrationRequest[] };
 
+async function readApiJson<T>(response: Response, action: string): Promise<T> {
+  const text = await response.text();
+  try { return text ? JSON.parse(text) as T : {} as T; }
+  catch {
+    if (response.status === 401) throw new Error("管理者認証の有効期限が切れています。ログインし直してから、もう一度保存してください。");
+    if (response.status === 413) throw new Error(`${action}するデータが大きすぎます。入力内容を減らして再度お試しください。`);
+    throw new Error(`${action}APIから正常な応答を受け取れませんでした（HTTP ${response.status}）。少し待ってから再度お試しください。`);
+  }
+}
+
 export function AdminManager() {
   const [tab, setTab] = useState<Tab>("brands");
   const [brands, setBrands] = useState<Brand[]>(usesSupabaseCatalog ? [] : seedBrands);
@@ -150,8 +160,10 @@ export function AdminManager() {
 
   async function persistCatalog(entity: "brand" | "chain" | "product" | "store", data: Brand | Chain | Product | Store, previous?: Brand | Chain | Product | Store, method: "POST" | "DELETE" = "POST") {
     try {
-      const response = await fetch("/api/admin/catalog", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, data, previous }) });
-      const result = await response.json() as { ok?: boolean; error?: string; data?: Brand | Chain | Product | Store };
+      const request = () => fetch("/api/admin/catalog", { method, headers: { "Accept": "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ entity, data, previous }) });
+      let response = await request();
+      if (response.status === 401) response = await request();
+      const result = await readApiJson<{ ok?: boolean; error?: string; data?: Brand | Chain | Product | Store }>(response, method === "DELETE" ? "削除" : "保存");
       if (!response.ok || !result.ok) throw new Error(result.error || "Supabaseへの保存に失敗しました");
       if (usesSupabaseCatalog) setTimeout(() => { void reloadCatalog(); }, 0);
       return result;
@@ -162,9 +174,10 @@ export function AdminManager() {
   }
 
   async function reloadCatalog() {
-    const response = await fetch("/api/admin/catalog", { cache: "no-store" });
+    const response = await fetch("/api/admin/catalog", { cache: "no-store", headers: { "Accept": "application/json" } });
     if (!response.ok) return;
-    const remote = await response.json() as CatalogResponse;
+    const remote = await readApiJson<CatalogResponse>(response, "再読み込み").catch(() => null);
+    if (!remote) return;
     setBrands(remote.brands ?? []);
     setChains(remote.chains ?? []);
     setProducts(remote.products ?? []);
@@ -175,8 +188,8 @@ export function AdminManager() {
 
   async function updateRequestStatus(kind: "product" | "store", id: string, status: "approved" | "rejected", product?:Product) {
     if (!usesSupabaseCatalog) return true;
-    const response = await fetch("/api/admin/catalog", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, id, status,productId:product?.id,productVariantId:product?.variants[0]?.id||null }) });
-    const result = await response.json() as { ok?: boolean; error?: string };
+    const response = await fetch("/api/admin/catalog", { method: "PATCH", headers: { "Accept": "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ kind, id, status,productId:product?.id,productVariantId:product?.variants[0]?.id||null }) });
+    const result: { ok?: boolean; error?: string } = await readApiJson<{ ok?: boolean; error?: string }>(response, "申請更新").catch((error) => ({ ok: false, error: error instanceof Error ? error.message : "申請状態を更新できませんでした" }));
     if (!response.ok || !result.ok) { alert(result.error || "申請状態を更新できませんでした"); return false; }
     return true;
   }

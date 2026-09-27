@@ -17,7 +17,8 @@ function errorMessage(error: unknown) {
 }
 
 async function authorized() {
-  return isAuthenticatedAdmin();
+  try { return await isAuthenticatedAdmin(); }
+  catch { return false; }
 }
 
 export async function GET() {

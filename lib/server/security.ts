@@ -12,22 +12,30 @@ export function isSupabaseMode() {
 }
 
 export async function getAuthenticatedUser() {
-  if (!isSupabaseMode()) return null;
-  const token = (await cookies()).get("sb-access-token")?.value;
-  if (!token) return null;
-  const { data, error } = await createSupabaseAdminClient().auth.getUser(token);
-  return error ? null : data.user;
+  try {
+    if (!isSupabaseMode()) return null;
+    const token = (await cookies()).get("sb-access-token")?.value;
+    if (!token) return null;
+    const { data, error } = await createSupabaseAdminClient().auth.getUser(token);
+    return error ? null : data.user;
+  } catch {
+    return null;
+  }
 }
 
 export async function isAuthenticatedAdmin() {
-  const user = await getAuthenticatedUser();
-  if (!user) return false;
-  const { data, error } = await createSupabaseAdminClient()
-    .from("profiles")
-    .select("is_admin,status")
-    .eq("id", user.id)
-    .maybeSingle();
-  return !error && data?.is_admin === true && data.status === "active";
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) return false;
+    const { data, error } = await createSupabaseAdminClient()
+      .from("profiles")
+      .select("is_admin,status")
+      .eq("id", user.id)
+      .maybeSingle();
+    return !error && data?.is_admin === true && data.status === "active";
+  } catch {
+    return false;
+  }
 }
 
 export function isSameOrigin(request: Request) {
