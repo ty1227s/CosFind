@@ -63,14 +63,12 @@ export default async function MunicipalityPage({ params }: PageProps) {
       <div className="area-store-list">{municipality.stores.map((store) => {
         const displayName = formatStoreName(store);
         const color = getStoreTypeColor(store.type);
-        return <article key={store.id}>
+        return <Link className="area-store-card" href={`/stores/${encodeURIComponent(store.id)}`} key={store.id} aria-label={`${displayName}の詳細を見る`}>
           <div className="area-store-code" style={{ backgroundColor: color.background, color: color.foreground }}>{getStoreTypeCode(store.type)}</div>
-          <div><p>{store.type}</p><h2><Link href={`/stores/${encodeURIComponent(store.id)}`}>{displayName}</Link></h2><address>{store.address}</address></div>
-          <Link className="area-store-detail-link" href={`/stores/${encodeURIComponent(store.id)}`} aria-label={`${displayName}の詳細を見る`}>詳細を見る <span>→</span></Link>
-        </article>;
+          <div><p>{store.type}</p><h2>{displayName}</h2><address>{store.address}</address></div>
+        </Link>;
       })}</div>
     </section>
     <aside className="area-information-note"><h2>在庫情報について</h2><p>CosFindはリアルタイムの在庫数を保証するサービスではありません。店舗詳細で情報提供日を確認し、来店時の目安としてご利用ください。</p></aside>
   </main></>;
 }
-
