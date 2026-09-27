@@ -22,7 +22,7 @@ function isMobileMapDevice() {
   return window.matchMedia("(max-width: 700px)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
-export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onCurrentLocationChange }: { stores: StoreResult[]; selected?: string; onSelect: (id: string) => void; onVisibleStoresChange?: (ids: string[]) => void; onCurrentLocationChange?: (location: { latitude: number; longitude: number } | null) => void }) {
+export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVisibleStoresChange, onCurrentLocationChange }: { stores: StoreResult[]; selected?: string; focusStoresKey?: string; onSelect: (id: string) => void; onVisibleStoresChange?: (ids: string[]) => void; onCurrentLocationChange?: (location: { latitude: number; longitude: number } | null) => void }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
   const markersRef = useRef<import("maplibre-gl").Marker[]>([]);
@@ -30,6 +30,7 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
   const centerTimerRef = useRef<number | undefined>(undefined);
   const legendTimerRef = useRef<number | undefined>(undefined);
   const currentPositionRef = useRef<[number, number] | null>(null);
+  const fittedStoresRef = useRef("");
   const onSelectRef = useRef(onSelect);
   const onVisibleStoresChangeRef = useRef(onVisibleStoresChange);
   const onCurrentLocationChangeRef = useRef(onCurrentLocationChange);
@@ -88,6 +89,30 @@ export function MapView({ stores, selected, onSelect, onVisibleStoresChange, onC
     });
     return () => { disposed = true; saveMapView?.(); if (saveMapView) { window.removeEventListener("pagehide", saveMapView); window.removeEventListener("beforeunload", saveMapView); } if (watchId !== undefined) navigator.geolocation.clearWatch(watchId); if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); userMarkerRef.current?.remove(); userMarkerRef.current = null; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; mapRef.current?.remove(); mapRef.current = null; };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || !focusStoresKey || !stores.length) return;
+    const signature = `${focusStoresKey}:${stores.map((store) => `${store.id}:${store.longitude}:${store.latitude}`).join("|")}`;
+    if (fittedStoresRef.current === signature) return;
+    let cancelled = false;
+    const fitStores = async () => {
+      if (cancelled || !mapRef.current) return;
+      const maplibre = await import("maplibre-gl");
+      if (cancelled || !mapRef.current) return;
+      fittedStoresRef.current = signature;
+      map.stop();
+      map.resize();
+      if (stores.length === 1) map.easeTo({ center: [stores[0].longitude, stores[0].latitude], zoom: 16, duration: 650 });
+      else {
+        const bounds = new maplibre.LngLatBounds();
+        stores.forEach((store) => bounds.extend([store.longitude, store.latitude]));
+        map.fitBounds(bounds, { padding: isMobileMapDevice() ? { top: 70, right: 34, bottom: 190, left: 34 } : 75, maxZoom: 16, duration: 700 });
+      }
+    };
+    if (map.loaded()) void fitStores(); else map.once("load", fitStores);
+    return () => { cancelled = true; map.off("load", fitStores); };
+  }, [focusStoresKey, mapReady, stores]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;

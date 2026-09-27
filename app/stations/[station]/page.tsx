@@ -51,7 +51,7 @@ export default async function StationPage({ params }: PageProps) {
       <dl><div><dt>登録店舗</dt><dd>{station.stores.length}<small>件</small></dd></div></dl>
     </header>
     <section className="area-store-section" aria-labelledby="station-store-heading">
-      <div className="area-section-heading"><div><h2 id="station-store-heading">{stationName}の登録店舗</h2><p>店舗詳細で最近報告された商品や取扱ブランドを確認できます。</p></div><Link href="/">地図から探す</Link></div>
+      <div className="area-section-heading"><div><h2 id="station-store-heading">{stationName}の登録店舗</h2><p>店舗詳細で最近報告された商品や取扱ブランドを確認できます。</p></div><Link href={`/?station=${encodeURIComponent(stationName)}`}>地図から探す</Link></div>
       <div className="area-store-list">{station.stores.map((store) => {
         const displayName = formatStoreName(store); const color = getStoreTypeColor(store.type);
         return <Link className="area-store-card" href={`/stores/${encodeURIComponent(store.id)}`} key={store.id} aria-label={`${displayName}の詳細を見る`}>
