@@ -29,6 +29,7 @@ export type AreaStore = {
 };
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
+export type StationDirectory = { name: string; stores: AreaStore[] };
 
 const municipalities = municipalitySource as MunicipalitySource;
 const prefectureOrder = Object.keys(municipalities);
@@ -126,10 +127,33 @@ export function findMunicipality(prefecture: PrefectureDirectory, name: string) 
   return prefecture.municipalities.find((item) => item.name === name);
 }
 
+export const getStationDirectory = cache(async (): Promise<StationDirectory[]> => {
+  const areaDirectory = await getAreaDirectory();
+  const stationStores = new Map<string, Map<string, AreaStore>>();
+  for (const prefecture of areaDirectory) {
+    for (const municipality of prefecture.municipalities) {
+      for (const store of municipality.stores) {
+        for (const stationName of store.stationNames) {
+          const stores = stationStores.get(stationName) ?? new Map<string, AreaStore>();
+          stores.set(store.id, store);
+          stationStores.set(stationName, stores);
+        }
+      }
+    }
+  }
+  return [...stationStores.entries()]
+    .map(([name, stores]) => ({ name, stores: [...stores.values()].sort((left, right) => left.name.localeCompare(right.name, "ja")) }))
+    .sort((left, right) => left.name.localeCompare(right.name, "ja"));
+});
+
 export function areaHref(prefecture?: string, municipality?: string) {
   if (!prefecture) return "/areas";
   const prefecturePath = `/areas/${encodeURIComponent(prefecture)}`;
   return municipality ? `${prefecturePath}/${encodeURIComponent(municipality)}` : prefecturePath;
+}
+
+export function stationHref(stationName?: string) {
+  return stationName ? `/stations/${encodeURIComponent(stationName)}` : "/stations";
 }
 
 export function decodeAreaSegment(segment: string) {
