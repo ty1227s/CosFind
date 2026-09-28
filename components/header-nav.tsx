@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { PwaInstallButton } from "./pwa-install-manager";
+import { CosFindLogo } from "./cosfind-logo";
 
 type Session = { authenticated: boolean; isAdmin?: boolean; username?: string; avatar?: string; avatarUrl?: string; points?: number };
 
@@ -59,8 +59,7 @@ export function HeaderNav() {
   const menuItems = (drawer = false) => <>
     {drawer && <button type="button" className="mobile-menu-close" aria-label="メニューを閉じる" onClick={() => setMenuOpen(false)}>×</button>}
     {drawer && <Link href="/" className="drawer-brandmark" onClick={() => setMenuOpen(false)}>
-      <span className="logo"><Image src="/icons/cosfind-icon.png" alt="" width={40} height={40} /></span>
-      <b>CosFind</b>
+      <CosFindLogo />
     </Link>}
     {drawer && accountLink(true)}
     <div className="drawer-primary-navigation" aria-label="ページメニュー">

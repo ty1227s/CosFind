@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { MapView } from "./map-view";
 import { stores } from "@/lib/mock-data";
 import { catalogRepository, usesSupabaseCatalog } from "@/lib/data";
@@ -14,6 +13,7 @@ import { FavoriteButton } from "./favorite-button";
 import { AuthenticatedOnly } from "./authenticated-only";
 import { getStoreOpenStatus } from "@/lib/store-hours";
 import { HeaderProductSearch } from "./header-product-search";
+import { CosFindLogo } from "./cosfind-logo";
 
 const fmt=(iso:string)=>new Intl.DateTimeFormat("ja-JP",{year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(iso));
 export function CosFindApp({ initialStation = "" }: { initialStation?: string }){
@@ -38,7 +38,7 @@ export function CosFindApp({ initialStation = "" }: { initialStation?: string })
  const closeMapCard=useCallback(()=>{setClosingCard(true);window.setTimeout(()=>{setSelected("");setClosingCard(false)},180)},[]);
  const updateVisibleStores=useCallback((ids:string[])=>setVisibleStoreIds(current=>current?.length===ids.length&&current.every((id,index)=>id===ids[index])?current:ids),[]);
  return <main className={`app-shell${active?" store-popup-open":""}`}>
-  <header className="topbar"><Link href="/" className="brandmark"><span className="logo"><Image src="/icons/cosfind-icon.png" alt="" width={40} height={40} priority/></span><span><b>CosFind</b></span></Link><HeaderProductSearch/><HeaderNav/></header>
+  <header className="topbar"><Link href="/" className="brandmark" aria-label="CosFind ホーム"><CosFindLogo priority/></Link><HeaderProductSearch/><HeaderNav/></header>
   <section className={`workspace${panelCollapsed?" panel-collapsed":""}`}>
    <aside id="store-search-panel" className={`panel ${sheet?"sheet-open":""}`}><button className="sheet-handle" onClick={()=>setSheet(v=>!v)} aria-label="店舗一覧を開閉"><span/></button>
     {initialStation&&<div className="station-map-filter"><span><b>{initialStation}</b>周辺の登録店舗を表示中</span><Link href="/">すべての店舗を表示</Link></div>}
