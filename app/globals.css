@@ -507,3 +507,6 @@ html,body{overflow-x:clip}
 .product-category-checkboxes label>span.product-category-choice{padding:0;color:var(--ink);font-size:11px}
 .product-category-checkboxes .product-category-choice small{background:#ffffffdd;color:#8f2459}
 @media(max-width:700px){.product-category-badge{font-size:10px}.product-search-list-row>.product-category-badges{align-items:flex-start}}
+
+/* On phones the map is the primary store browser; keep only the compact map filters. */
+@media(max-width:700px){.app-shell .panel{right:12px;bottom:12px;left:12px;height:auto;max-height:calc(100% - 24px);border:1px solid #eadfe4;border-radius:14px;box-shadow:0 8px 28px #3b283326;overflow-y:auto}.app-shell .panel.sheet-open{height:auto}.app-shell .panel .sheet-handle,.app-shell .panel .list-head,.app-shell .panel .store-list{display:none}.app-shell.store-popup-open .panel{transform:translateY(calc(100% + 24px))}}
