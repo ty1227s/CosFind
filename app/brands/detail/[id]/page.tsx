@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ProductCategoryBadges } from "@/components/product-category-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           {products.length ? <div className="product-search-list">
             {products.map((product) => <Link href={`/products/${product.id}`} className="product-search-list-row" key={product.id}>
               <span><small>{brand.name}</small><b>{product.name}</b></span>
-              <span className="product-category-label">{[product.category, ...(product.additional_categories ?? [])].join(" / ")}</span>
+              <ProductCategoryBadges categories={[product.category, ...(product.additional_categories ?? [])]}/>
               <span>{Math.max(1, product.product_variants.length)}種</span>
               <strong>詳細を見る <i>→</i></strong>
             </Link>)}

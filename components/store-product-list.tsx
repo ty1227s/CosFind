@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ProductCategoryBadges } from "./product-category-badge";
 
 export type StoreProductItem = {
   id: string;
@@ -28,6 +29,6 @@ export function StoreProductList({ items }: { items: StoreProductItem[] }) {
       {(brand || category) && <button type="button" onClick={() => { setBrand(""); setCategory(""); }}>条件をクリア</button>}
       <small>{filtered.length}件</small>
     </div>
-    {filtered.length ? filtered.map((item) => <Link className="detail-row" href={`/products/${item.id}`} key={item.id}><span><b>{item.brand} / {item.name}</b><small>{[item.category,...(item.additionalCategories??[])].join(" / ")}</small></span><span>最終情報 {new Date(item.reportedAt).toLocaleDateString("ja-JP")} ›</span></Link>) : <div className="empty-state"><b>条件に一致する商品はありません</b><p>ブランドまたは商品ジャンルを変更してください。</p></div>}
+    {filtered.length ? filtered.map((item) => <Link className="detail-row" href={`/products/${item.id}`} key={item.id}><span><b>{item.brand} / {item.name}</b><ProductCategoryBadges categories={[item.category,...(item.additionalCategories??[])]}/></span><span>最終情報 {new Date(item.reportedAt).toLocaleDateString("ja-JP")} ›</span></Link>) : <div className="empty-state"><b>条件に一致する商品はありません</b><p>ブランドまたは商品ジャンルを変更してください。</p></div>}
   </>;
 }

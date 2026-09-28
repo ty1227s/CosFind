@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SiteHeader } from "./site-header";
 import { FavoriteButton } from "./favorite-button";
 import { formatStoreName } from "@/lib/store-name";
+import { ProductCategoryBadges } from "./product-category-badge";
 
 type ProductFavorite = { id: string; name: string; brand: string; category: string; additionalCategories: string[]; variants: { name: string; colorCode: string }[] };
 type StoreFavorite = { id: string; name: string; chain: string; address: string };
@@ -125,7 +126,7 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
             <button type="button" className="danger" disabled={!selected.length || deleting} onClick={() => void removeSelected()}>{deleting ? "削除中…" : `選択した項目を削除（${selected.length}）`}</button>
           </div>
           {productPage ? <FavoriteSection title="お気に入り商品" count={products.length} total={productCount} limit={100} empty="該当するお気に入り商品はありません。" selectAll={() => setSelected(visibleIds)} clear={() => setSelected([])}>
-            {products.map((product) => <div className="favorite-management-row" key={product.id}><input type="checkbox" aria-label={`${product.name}を選択`} checked={selected.includes(product.id)} onChange={() => toggle(product.id)}/><Link href={`/products/${product.id}`}><b>{product.name}</b><small>{product.brand}</small></Link><FavoriteButton kind="product" id={product.id} compact/></div>)}
+            {products.map((product) => <div className="favorite-management-row" key={product.id}><input type="checkbox" aria-label={`${product.name}を選択`} checked={selected.includes(product.id)} onChange={() => toggle(product.id)}/><Link href={`/products/${product.id}`}><b>{product.name}</b><small>{product.brand}</small><ProductCategoryBadges categories={[product.category,...(product.additionalCategories??[])]}/></Link><FavoriteButton kind="product" id={product.id} compact/></div>)}
           </FavoriteSection> : <FavoriteSection title="お気に入り店舗" count={stores.length} total={storeCount} limit={10} empty="該当するお気に入り店舗はありません。" selectAll={() => setSelected(visibleIds)} clear={() => setSelected([])}>
             {stores.map((store) => <div className="favorite-management-row" key={store.id}><input type="checkbox" aria-label={`${formatStoreName(store)}を選択`} checked={selected.includes(store.id)} onChange={() => toggle(store.id)}/><Link href={`/stores/${store.id}`}><b>{formatStoreName(store)}</b><small>{store.address}</small></Link><FavoriteButton kind="store" id={store.id} compact/></div>)}
           </FavoriteSection>}

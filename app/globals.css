@@ -490,3 +490,16 @@ html,body{overflow-x:clip}
 .station-map-filter{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;border:1px solid #e6c9d7;border-radius:12px;background:#fff5f9;padding:10px 12px;color:#72425a;font-size:11px}.station-map-filter b{color:#a32963}.station-map-filter a{flex:none;color:var(--pink);font-weight:800;text-decoration:none}
 .line-tag-autocomplete{position:relative;min-width:0}.line-tag-autocomplete>input{width:100%;box-sizing:border-box}.line-tag-suggestions{position:absolute;z-index:20;top:calc(100% + 5px);right:0;left:0;overflow:hidden;border:1px solid #dfc6d2;border-radius:11px;background:#fff;box-shadow:0 12px 30px #4b23372a}.line-tag-suggestions button{display:block;width:100%;border:0;border-bottom:1px solid #f0e7eb;border-radius:0;background:#fff;color:var(--ink);padding:10px 12px;text-align:left;font-size:13px;font-weight:600}.line-tag-suggestions button:last-child{border-bottom:0}.line-tag-suggestions button:hover,.line-tag-suggestions button:focus-visible{background:#fff0f6;color:var(--pink);outline:0}
 @media(max-width:900px){.station-directory-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.railway-station-sequence{grid-template-columns:1fr 1fr}}@media(max-width:700px){.station-tag-editor{padding:11px}.station-tag-input{grid-template-columns:1fr}.station-tag-input button{width:100%}.store-stations{align-items:stretch;flex-direction:column;gap:5px;margin-top:-20px}.store-stations>b{padding-top:0}.map-card>.station-tags{max-height:52px;overflow:hidden}.station-directory-grid,.railway-line-directory-grid{grid-template-columns:1fr 1fr}.station-cols,.railway-line-cols{grid-template-columns:1fr 1fr}.station-cols>span:nth-child(2),.railway-line-cols>span:nth-child(2){grid-column:1/-1}.station-directory-name small{max-width:110px}.railway-station-sequence{grid-template-columns:1fr}.railway-station-editor select{min-width:210px;font-size:13px}}
+
+/* Product category colors are shared across public and admin screens. */
+.product-category-badges{display:flex;min-width:0;align-items:center;flex-wrap:wrap;gap:5px}
+.product-category-badge,.product-category-choice{display:inline-flex;width:fit-content;align-items:center;border-radius:999px;color:#fff!important;padding:4px 9px;font-size:10px;font-weight:800;line-height:1.35}
+.product-category-badge.cosmetics,.product-category-choice.cosmetics{background:#cf2d78}
+.product-category-badge.skincare,.product-category-choice.skincare{background:#3c9fc9}
+.detail-product-categories{margin:0 0 10px}
+.home-new-card>.product-category-badges{position:relative;z-index:1;width:auto;min-height:0;margin:0;padding:0;background:transparent;border-radius:0}
+.detail-row .product-category-badges,.favorite-management-row .product-category-badges{margin-top:6px}
+.history-product-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:4px;color:var(--muted);font-size:11px}
+.product-category-checkboxes label>span.product-category-choice{padding:4px 8px;color:#fff;font-size:11px}
+.product-category-checkboxes .product-category-choice small{background:#ffffffdd;color:#8f2459}
+@media(max-width:700px){.product-category-badge{font-size:10px}.product-search-list-row>.product-category-badges{align-items:flex-start}}

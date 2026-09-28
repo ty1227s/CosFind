@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SiteHeader } from "./site-header";
 import { formatVariantName } from "@/lib/variant-name";
+import { ProductCategoryBadges } from "./product-category-badge";
 
 type HistoryKind = "reports" | "products" | "stores";
 type HistoryResponse = { items: Record<string, unknown>[]; page: number; pageSize: number; total: number; totalPages: number; error?: string };
@@ -95,7 +96,7 @@ function RequestRow({ item, kind }: { item: Record<string, unknown>; kind: "prod
   const payload = record(item.payload);
   const name = text(payload.name) || (kind === "products" ? "商品名なし" : "店舗名なし");
   return <article className="history-row">
-    <div className="history-row-main"><span className={`history-status status-${text(item.status)}`}>{statusLabels[text(item.status)] || text(item.status)}</span><h2>{name}</h2><p>{kind === "products" ? [text(payload.brand), text(payload.category)].filter(Boolean).join(" / ") : [text(payload.chain), text(payload.type)].filter(Boolean).join(" / ") || "個店"}</p></div>
+    <div className="history-row-main"><span className={`history-status status-${text(item.status)}`}>{statusLabels[text(item.status)] || text(item.status)}</span><h2>{name}</h2>{kind === "products" ? <div className="history-product-meta"><span>{text(payload.brand)}</span><ProductCategoryBadges categories={[text(payload.category)]}/></div> : <p>{[text(payload.chain), text(payload.type)].filter(Boolean).join(" / ") || "個店"}</p>}</div>
     <dl>{kind === "products" ? <><div><dt>カラー</dt><dd>{[text(payload.colorCode), text(payload.variantName)].filter(Boolean).join(" ") || "—"}</dd></div><div><dt>JANコード</dt><dd>{text(payload.janCode) || "—"}</dd></div><div><dt>PA</dt><dd>{text(payload.pa) || "未設定"}</dd></div>{text(payload.reportStoreId)&&<div><dt>発見情報</dt><dd>商品承認後に在庫報告へ反映</dd></div>}</> : <div><dt>住所</dt><dd>{text(payload.address) || "未入力"}</dd></div>}<div><dt>申請日時</dt><dd>{formatDate(item.created_at)}</dd></div></dl>
   </article>;
 }
