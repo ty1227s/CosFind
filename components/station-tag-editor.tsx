@@ -42,7 +42,7 @@ export function StationTagEditor({ initialNames = [], suggestions = [] }: { init
       </div>
       <button type="button" onClick={() => add()} disabled={!input.trim() || names.length >= MAX_STATIONS}>追加</button>
     </div>
-    <div className="station-tag-list" aria-live="polite">
+    <div className="station-tag-list station-name-tag-list" aria-live="polite">
       {names.map((name) => <span key={name}>{name}<input type="hidden" name="stationNames" value={name}/><button type="button" aria-label={`${name}を削除`} onClick={() => setNames((current) => current.filter((item) => item !== name))}>×</button></span>)}
       {!names.length && <small>駅名はまだ登録されていません</small>}
     </div>
