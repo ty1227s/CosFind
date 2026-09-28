@@ -12,8 +12,14 @@ export const metadata: Metadata = {
   openGraph: { title: "路線からコスメ取扱店舗を探す | CosFind", description: "路線と駅を選んで周辺のコスメ取扱店舗を確認できます。", url: `${publicSiteOrigin}/lines`, type: "website" },
 };
 
-export default async function RailwayLinesPage() {
+type PageProps = { searchParams: Promise<{ company?: string }> };
+
+export default async function RailwayLinesPage({ searchParams }: PageProps) {
   const lines = await getRailwayLineDirectory();
+  const requestedCompany = (await searchParams).company?.trim() ?? "";
+  const companies = [...new Set(lines.map((line) => line.company).filter(Boolean))].sort((left, right) => left.localeCompare(right, "ja"));
+  const selectedCompany = companies.includes(requestedCompany) ? requestedCompany : "";
+  const visibleLines = selectedCompany ? lines.filter((line) => line.company === selectedCompany) : lines;
   const stationCount = new Set(lines.flatMap((line) => line.stations.map((station) => station.name))).size;
   return <><SiteHeader/><main className="area-directory-page">
     <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><span>路線から探す</span></nav>
@@ -24,10 +30,10 @@ export default async function RailwayLinesPage() {
       <dl><div><dt>登録路線</dt><dd>{lines.length}<small>路線</small></dd></div><div><dt>登録駅</dt><dd>{stationCount}<small>駅</small></dd></div></dl>
     </header>
     {lines.length ? <section className="area-municipality-section" aria-labelledby="line-heading">
-      <h2 id="line-heading">路線を選択</h2>
-      <div className="area-municipality-grid railway-line-directory-grid">{lines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
+      <div className="directory-section-heading"><h2 id="line-heading">路線を選択</h2><form className="railway-company-filter" action="/lines" method="get"><label><span>鉄道会社</span><select name="company" defaultValue={selectedCompany}><option value="">すべての鉄道会社</option>{companies.map((company)=><option key={company} value={company}>{company}</option>)}</select></label><button type="submit">絞り込む</button>{selectedCompany&&<Link href="/lines">解除</Link>}</form></div>
+      {visibleLines.length ? <div className="area-municipality-grid railway-line-directory-grid">{visibleLines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
         <span className="railway-line-card-name">{line.imageUrl&&<img src={line.imageUrl} alt=""/>}<b>{line.name}</b></span><span>{line.stations.length}<small>駅</small></span>
-      </Link>)}</div>
+      </Link>)}</div> : <div className="area-empty compact"><b>該当する路線はありません</b><p>鉄道会社の指定を変更してください。</p></div>}
     </section> : <div className="area-empty"><b>路線はまだ登録されていません</b><p>管理画面で路線と駅順を登録すると、ここに自動表示されます。</p></div>}
   </main></>;
 }

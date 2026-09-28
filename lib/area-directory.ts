@@ -14,7 +14,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; lineName?: unknown; lineNames?: unknown; imageUrl?: unknown; isActive?: unknown };
+type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; lineName?: unknown; lineNames?: unknown; company?: unknown; imageUrl?: unknown; isActive?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -30,7 +30,7 @@ export type AreaStore = {
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
 export type StationDirectory = { name: string; prefecture: string; lineNames: string[]; stores: AreaStore[] };
-export type RailwayLineDirectory = { name: string; imageUrl: string; stations: StationDirectory[]; stores: AreaStore[] };
+export type RailwayLineDirectory = { name: string; company: string; imageUrl: string; stations: StationDirectory[]; stores: AreaStore[] };
 
 const municipalities = municipalitySource as MunicipalitySource;
 const prefectureOrder = Object.keys(municipalities);
@@ -173,11 +173,12 @@ export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirect
     if((page.data?.length??0)<1000)break;
   }
   const stations=await stationsPromise;
-  const configuredLines = new Map<string, { stationNames: string[]; imageUrl:string; isActive: boolean }>();
+  const configuredLines = new Map<string, { company:string; stationNames: string[]; imageUrl:string; isActive: boolean }>();
   for (const row of metadataRows) {
     const payload = row.payload as MetadataPayload | null;
     if (payload?.metadataType !== "railway_line_directory" || typeof payload.lineName !== "string") continue;
     configuredLines.set(payload.lineName, {
+      company: typeof payload.company === "string" ? payload.company : "",
       stationNames: Array.isArray(payload.stationNames) ? payload.stationNames.filter((name): name is string => typeof name === "string") : [],
       imageUrl:typeof payload.imageUrl==="string"?payload.imageUrl:"",
       isActive: payload.isActive !== false,
@@ -198,7 +199,7 @@ export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirect
     });
     const stores = new Map<string, AreaStore>();
     for (const station of members) for (const store of station.stores) stores.set(store.id, store);
-    return [{ name, imageUrl:configuredLines.get(name)?.imageUrl??"", stations: members, stores: [...stores.values()] }];
+    return [{ name, company:configuredLines.get(name)?.company??"", imageUrl:configuredLines.get(name)?.imageUrl??"", stations: members, stores: [...stores.values()] }];
   }).sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
 
