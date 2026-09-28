@@ -1,11 +1,19 @@
 import { PRODUCT_CATEGORY_GROUPS } from "@/lib/product-categories";
 
-const skincareCategories = new Set<string>(
-  PRODUCT_CATEGORY_GROUPS.find((group) => group.label === "スキンケア")?.categories ?? [],
+const groupTones = {
+  "メイクアップ": "cosmetics",
+  "スキンケア": "skincare",
+  "UVケア": "uv",
+  "ネイル": "nail",
+  "美容ツール": "tools",
+} as const;
+
+const categoryTones = new Map<string, string>(
+  PRODUCT_CATEGORY_GROUPS.flatMap((group) => group.categories.map((category) => [category, groupTones[group.label]] as const)),
 );
 
 export function productCategoryTone(category: string) {
-  return skincareCategories.has(category) ? "skincare" : "cosmetics";
+  return groupTones[category as keyof typeof groupTones] ?? categoryTones.get(category) ?? "tools";
 }
 
 export function ProductCategoryBadge({ category }: { category: string }) {

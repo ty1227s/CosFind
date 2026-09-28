@@ -31,7 +31,7 @@ export function ProductCategoryEditor({ primaryCategory, additionalCategories = 
     {[...selected].map((category) => <input key={category} type="hidden" name="additionalCategories" value={category}/>)}
     <div className="product-additional-category-head"><b>追加カテゴリ（複数選択可）</b><span><strong>{selected.size}</strong>件選択中</span></div>
     <div className="product-category-checkboxes">
-      {PRODUCT_CATEGORY_GROUPS.map((group) => <section key={group.label}><h3>{group.label}</h3><div>{group.categories.map((category) => <label key={category} className={category === primary ? "is-primary" : ""}><input type="checkbox" checked={category === primary || selected.has(category)} disabled={category === primary} onChange={(event) => toggle(category, event.target.checked)}/><span className={`product-category-choice ${productCategoryTone(category)}`}>{category}{category === primary && <small>主</small>}</span></label>)}</div></section>)}
+      {PRODUCT_CATEGORY_GROUPS.map((group) => <section key={group.label}><h3 className={`product-category-group ${productCategoryTone(group.label)}`}>{group.label}</h3><div>{group.categories.map((category) => <label key={category} className={category === primary ? "is-primary" : ""}><input type="checkbox" checked={category === primary || selected.has(category)} disabled={category === primary} onChange={(event) => toggle(category, event.target.checked)}/><span className="product-category-choice">{category}{category === primary && <small>主</small>}</span></label>)}</div></section>)}
     </div>
   </fieldset>;
 }
