@@ -26,7 +26,7 @@ export default async function RailwayLinesPage() {
     {lines.length ? <section className="area-municipality-section" aria-labelledby="line-heading">
       <h2 id="line-heading">路線を選択</h2>
       <div className="area-municipality-grid railway-line-directory-grid">{lines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
-        <span className="station-directory-name"><b>{line.name}</b></span><span>{line.stations.length}<small>駅</small></span>
+        <span className="railway-line-card-name">{line.imageUrl&&<img src={line.imageUrl} alt=""/>}<b>{line.name}</b></span><span>{line.stations.length}<small>駅</small></span>
       </Link>)}</div>
     </section> : <div className="area-empty"><b>路線はまだ登録されていません</b><p>管理画面で路線と駅順を登録すると、ここに自動表示されます。</p></div>}
   </main></>;

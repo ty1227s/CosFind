@@ -14,7 +14,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; lineName?: unknown; lineNames?: unknown; isActive?: unknown };
+type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; lineName?: unknown; lineNames?: unknown; imageUrl?: unknown; isActive?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -30,7 +30,7 @@ export type AreaStore = {
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
 export type StationDirectory = { name: string; prefecture: string; lineNames: string[]; stores: AreaStore[] };
-export type RailwayLineDirectory = { name: string; stations: StationDirectory[]; stores: AreaStore[] };
+export type RailwayLineDirectory = { name: string; imageUrl: string; stations: StationDirectory[]; stores: AreaStore[] };
 
 const municipalities = municipalitySource as MunicipalitySource;
 const prefectureOrder = Object.keys(municipalities);
@@ -163,17 +163,23 @@ export const getStationDirectory = cache(async (): Promise<StationDirectory[]> =
 });
 
 export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirectory[]> => {
-  const [stations, metadataResult] = await Promise.all([
-    getStationDirectory(),
-    createSupabaseAdminClient().from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }),
-  ]);
-  if (metadataResult.error) throw new Error(`路線情報の取得に失敗しました: ${metadataResult.error.message}`);
-  const configuredLines = new Map<string, { stationNames: string[]; isActive: boolean }>();
-  for (const row of metadataResult.data ?? []) {
+  const stationsPromise = getStationDirectory();
+  const db=createSupabaseAdminClient();
+  const metadataRows:Array<{payload:unknown;created_at:string}>=[];
+  for(let from=0;;from+=1000){
+    const page=await db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }).range(from,from+999);
+    if(page.error)throw new Error(`路線情報の取得に失敗しました: ${page.error.message}`);
+    metadataRows.push(...(page.data??[]));
+    if((page.data?.length??0)<1000)break;
+  }
+  const stations=await stationsPromise;
+  const configuredLines = new Map<string, { stationNames: string[]; imageUrl:string; isActive: boolean }>();
+  for (const row of metadataRows) {
     const payload = row.payload as MetadataPayload | null;
     if (payload?.metadataType !== "railway_line_directory" || typeof payload.lineName !== "string") continue;
     configuredLines.set(payload.lineName, {
       stationNames: Array.isArray(payload.stationNames) ? payload.stationNames.filter((name): name is string => typeof name === "string") : [],
+      imageUrl:typeof payload.imageUrl==="string"?payload.imageUrl:"",
       isActive: payload.isActive !== false,
     });
   }
@@ -192,7 +198,7 @@ export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirect
     });
     const stores = new Map<string, AreaStore>();
     for (const station of members) for (const store of station.stores) stores.set(store.id, store);
-    return [{ name, stations: members, stores: [...stores.values()] }];
+    return [{ name, imageUrl:configuredLines.get(name)?.imageUrl??"", stations: members, stores: [...stores.values()] }];
   }).sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
 
