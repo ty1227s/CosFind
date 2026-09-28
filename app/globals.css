@@ -500,6 +500,8 @@ html,body{overflow-x:clip}
 .product-category-badge.skincare,.product-category-group.skincare{background:#3c9fc9}
 .product-category-badge.uv,.product-category-group.uv{background:#f4d84d;color:#242124!important}
 .product-category-badge.nail,.product-category-group.nail{background:#8fdcc5;color:#242124!important}
+.product-category-badge.bodycare,.product-category-group.bodycare{background:#df812c}
+.product-category-badge.fragrance,.product-category-group.fragrance{background:#9277c9}
 .product-category-badge.tools,.product-category-group.tools{background:#737077}
 .detail-product-categories{margin:0 0 10px}
 .home-new-card>.product-category-badges{position:relative;z-index:1;width:auto;min-height:0;margin:0;padding:0;background:transparent;border-radius:0}

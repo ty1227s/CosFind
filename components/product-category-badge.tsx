@@ -5,8 +5,8 @@ const groupTones = {
   "スキンケア": "skincare",
   "UVケア": "uv",
   "ネイル": "nail",
-  "ボディ・ハンドケア": "tools",
-  "フレグランス": "tools",
+  "ボディ・ハンドケア": "bodycare",
+  "フレグランス": "fragrance",
   "美容ツール": "tools",
 } as const;
 
