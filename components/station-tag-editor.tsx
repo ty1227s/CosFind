@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 const MAX_STATIONS = 12;
 
@@ -14,6 +14,7 @@ export function StationTagEditor({ initialNames = [], suggestions = [] }: { init
   const [names, setNames] = useState(() => [...new Set(initialNames.map(normalizeStationName).filter(Boolean))].slice(0, MAX_STATIONS));
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const candidates = [...new Set(suggestions.map(normalizeStationName).filter(Boolean))]
     .filter((name) => !names.includes(name) && (!input.trim() || name.toLocaleLowerCase("ja").includes(input.trim().toLocaleLowerCase("ja"))))
     .slice(0, 8);
@@ -23,6 +24,8 @@ export function StationTagEditor({ initialNames = [], suggestions = [] }: { init
     if (!candidates.length) return;
     setNames((current) => [...new Set([...current, ...candidates])].slice(0, MAX_STATIONS));
     setInput("");
+    setFocused(true);
+    inputRef.current?.focus();
   }
 
   return <fieldset className="station-tag-editor">
@@ -30,12 +33,12 @@ export function StationTagEditor({ initialNames = [], suggestions = [] }: { init
     <p>店舗を探すときに使われる駅名を登録してください。最大{MAX_STATIONS}駅まで設定できます。</p>
     <div className="station-tag-input">
       <div className="line-tag-autocomplete">
-      <input value={input} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => {
+      <input ref={inputRef} value={input} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onChange={(event) => { setInput(event.target.value); setFocused(true); }} onKeyDown={(event) => {
         if (event.key === "Enter") { event.preventDefault(); add(); }
         if (event.key === "," || event.key === "、") { event.preventDefault(); add(); }
         if (event.key === "Escape") setFocused(false);
       }} placeholder="例：新宿駅" aria-label="追加する駅名" autoComplete="off" aria-expanded={focused && candidates.length > 0} disabled={names.length >= MAX_STATIONS}/>
-      {focused && candidates.length > 0 && <div className="line-tag-suggestions" role="listbox" aria-label="登録済み駅名の候補">{candidates.map((name) => <button type="button" role="option" key={name} onMouseDown={(event) => { event.preventDefault(); add(name); setFocused(false); }}>{name}</button>)}</div>}
+      {focused && candidates.length > 0 && <div className="line-tag-suggestions" role="listbox" aria-label="登録済み駅名の候補">{candidates.map((name) => <button type="button" role="option" key={name} onMouseDown={(event) => { event.preventDefault(); add(name); }}>{name}</button>)}</div>}
       </div>
       <button type="button" onClick={() => add()} disabled={!input.trim() || names.length >= MAX_STATIONS}>追加</button>
     </div>
