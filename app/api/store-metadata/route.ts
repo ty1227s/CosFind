@@ -14,10 +14,15 @@ export async function GET(request: Request) {
   if(visibleResult.error)return NextResponse.json({error:"店舗情報を取得できませんでした"},{status:500});
   const requested = new Set((visibleResult.data??[]).map(store=>store.id));
   if(!requested.size)return NextResponse.json({stores:{}});
-  const result = await db.from("store_requests").select("payload,created_at").eq("status", "metadata").in("payload->>storeId", [...requested]).order("created_at", { ascending: true });
-  if (result.error) return NextResponse.json({ error: "店舗付加情報を取得できませんでした" }, { status: 500 });
+  const metadataRows: Array<{payload:unknown;created_at:string}> = [];
+  for(let from=0;;from+=1000){
+    const page=await db.from("store_requests").select("payload,created_at").eq("status", "metadata").in("payload->>storeId", [...requested]).order("created_at", { ascending: true }).range(from,from+999);
+    if(page.error)return NextResponse.json({error:"店舗付加情報を取得できませんでした"},{status:500});
+    metadataRows.push(...(page.data??[]));
+    if((page.data?.length??0)<1000)break;
+  }
   const stores: Record<string, { businessHours: unknown; customName: boolean; stationNames: string[] }> = {};
-  for (const row of result.data ?? []) {
+  for (const row of metadataRows) {
     const payload = row.payload as { storeId?: unknown; businessHours?: unknown; customName?: unknown; stationNames?: unknown };
     if (typeof payload.storeId === "string" && requested.has(payload.storeId)) {
       const previous = stores[payload.storeId] ?? { businessHours: {}, customName: false, stationNames: [] };

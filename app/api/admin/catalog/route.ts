@@ -38,11 +38,17 @@ export async function GET() {
     ]);
     const error = brandsResult.error || chainsResult.error || productsResult.error || storesResult.error || productRequestsResult.error || storeRequestsResult.error;
     if (error) throw error;
-    const metadataResult=await db.from("store_requests").select("payload,created_at").eq("status","metadata").order("created_at",{ascending:true});if(metadataResult.error)throw metadataResult.error;
+    const metadataRows: Array<{payload:unknown;created_at:string}> = [];
+    for(let from=0;;from+=1000){
+      const metadataPage=await db.from("store_requests").select("payload,created_at").eq("status","metadata").order("created_at",{ascending:true}).range(from,from+999);
+      if(metadataPage.error)throw metadataPage.error;
+      metadataRows.push(...(metadataPage.data??[]));
+      if((metadataPage.data?.length??0)<1000)break;
+    }
     const storeMetadata=new Map<string,{brandIds:string[];openingTime:string;closingTime:string;businessHours:StoreHours;customName:boolean;stationNames:string[]}>();
     const stationMetadata=new Map<string,{prefecture:string;lineNames:string[];isActive:boolean}>();
     const railwayLineMetadata=new Map<string,{stationNames:string[];isActive:boolean}>();
-    for(const item of metadataResult.data??[]){
+    for(const item of metadataRows){
       const payload=item.payload as{metadataType?:string;storeId?:string;brandIds?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown;stationName?:unknown;prefecture?:unknown;lineName?:unknown;lineNames?:unknown;isActive?:unknown};
       if(payload.metadataType==="station_directory"&&typeof payload.stationName==="string"){
         stationMetadata.set(payload.stationName,{prefecture:typeof payload.prefecture==="string"?payload.prefecture:"",lineNames:Array.isArray(payload.lineNames)?payload.lineNames.filter((name):name is string=>typeof name==="string"):[],isActive:payload.isActive!==false});
