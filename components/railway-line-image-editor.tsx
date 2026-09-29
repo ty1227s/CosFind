@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function RailwayLineImageEditor({ initialUrl = "" }: { initialUrl?: string }) {
+export function RailwayLineImageEditor({ initialUrl = "", active = true }: { initialUrl?: string; active?: boolean }) {
   const [imageUrl, setImageUrl] = useState(initialUrl);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -25,7 +25,7 @@ export function RailwayLineImageEditor({ initialUrl = "" }: { initialUrl?: strin
     }
   }
 
-  return <fieldset className="railway-line-image-editor">
+  return <fieldset className="railway-line-image-editor" hidden={!active}>
     <legend>路線記号画像</legend>
     <input type="hidden" name="imageUrl" value={imageUrl}/>
     <div className="railway-line-image-preview">{imageUrl ? <img src={imageUrl} alt="登録中の路線記号"/> : <span>画像未登録</span>}</div>

@@ -14,7 +14,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; municipality?: unknown; lineName?: unknown; lineNames?: unknown; companies?: unknown; company?: unknown; imageUrl?: unknown; isActive?: unknown };
+type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; municipality?: unknown; lineName?: unknown; lineNames?: unknown; companies?: unknown; company?: unknown; visualType?: unknown; imageUrl?: unknown; lineColor?: unknown; isActive?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -30,7 +30,7 @@ export type AreaStore = {
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
 export type StationDirectory = { name: string; prefecture: string; municipality: string; lineNames: string[]; stores: AreaStore[] };
-export type RailwayLineDirectory = { name: string; companies: string[]; imageUrl: string; stations: StationDirectory[]; stores: AreaStore[] };
+export type RailwayLineDirectory = { name: string; companies: string[]; visualType: "image" | "color"; imageUrl: string; lineColor: string; stations: StationDirectory[]; stores: AreaStore[] };
 
 const municipalities = municipalitySource as MunicipalitySource;
 const prefectureOrder = Object.keys(municipalities);
@@ -174,14 +174,17 @@ export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirect
     if((page.data?.length??0)<1000)break;
   }
   const stations=await stationsPromise;
-  const configuredLines = new Map<string, { companies:string[]; stationNames: string[]; imageUrl:string; isActive: boolean }>();
+  const configuredLines = new Map<string, { companies:string[]; stationNames: string[]; visualType:"image"|"color"; imageUrl:string; lineColor:string; isActive: boolean }>();
   for (const row of metadataRows) {
     const payload = row.payload as MetadataPayload | null;
     if (payload?.metadataType !== "railway_line_directory" || typeof payload.lineName !== "string") continue;
+    const imageUrl=typeof payload.imageUrl==="string"?payload.imageUrl:"";const lineColor=typeof payload.lineColor==="string"&&/^#[0-9a-f]{6}$/i.test(payload.lineColor)?payload.lineColor.toLowerCase():"";
     configuredLines.set(payload.lineName, {
       companies: Array.isArray(payload.companies) ? [...new Set(payload.companies.filter((name): name is string => typeof name === "string" && Boolean(name.trim())))] : typeof payload.company === "string" && payload.company.trim() ? [payload.company] : [],
       stationNames: Array.isArray(payload.stationNames) ? payload.stationNames.filter((name): name is string => typeof name === "string") : [],
-      imageUrl:typeof payload.imageUrl==="string"?payload.imageUrl:"",
+      visualType:payload.visualType==="color"?"color":payload.visualType==="image"?"image":imageUrl?"image":"color",
+      imageUrl,
+      lineColor,
       isActive: payload.isActive !== false,
     });
   }
@@ -200,7 +203,7 @@ export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirect
     });
     const stores = new Map<string, AreaStore>();
     for (const station of members) for (const store of station.stores) stores.set(store.id, store);
-    return [{ name, companies:configuredLines.get(name)?.companies??[], imageUrl:configuredLines.get(name)?.imageUrl??"", stations: members, stores: [...stores.values()] }];
+    return [{ name, companies:configuredLines.get(name)?.companies??[], visualType:configuredLines.get(name)?.visualType??"color", imageUrl:configuredLines.get(name)?.imageUrl??"", lineColor:configuredLines.get(name)?.lineColor??"", stations: members, stores: [...stores.values()] }];
   }).sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
 

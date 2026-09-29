@@ -35,7 +35,7 @@ export default async function RailwayLinesPage({ searchParams }: PageProps) {
     {lines.length ? selectedCompany ? <section className="area-municipality-section" aria-labelledby="line-heading">
       <div className="area-section-heading"><div><h2 id="line-heading">{selectedCompanyLabel}の路線</h2><p>路線を選ぶと登録駅を確認できます。</p></div><Link href="/lines">← 鉄道会社一覧へ戻る</Link></div>
       <div className="area-municipality-grid railway-line-directory-grid">{visibleLines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
-        <span className="railway-line-card-name">{line.imageUrl&&<img src={line.imageUrl} alt=""/>}<b>{line.name}</b></span><span>{line.stations.length}<small>駅</small></span>
+        <span className="railway-line-card-name">{line.visualType==="image"&&line.imageUrl?<img src={line.imageUrl} alt=""/>:line.lineColor?<i className="railway-line-color-mark" style={{backgroundColor:line.lineColor}}/>:null}<b>{line.name}</b></span><span>{line.stations.length}<small>駅</small></span>
       </Link>)}</div>
     </section> : <section className="area-municipality-section" aria-labelledby="company-heading">
       <h2 id="company-heading">鉄道会社を選択</h2>
