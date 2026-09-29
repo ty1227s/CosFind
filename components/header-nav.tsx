@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PwaInstallButton } from "./pwa-install-manager";
 import { CosFindLogo } from "./cosfind-logo";
@@ -15,6 +15,7 @@ export function HeaderNav() {
   const [session, setSession] = useState<Session>({ authenticated: false });
   const [sessionChecked, setSessionChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement>(null);
   const [mounted, setMounted] = useState(false);
   const [loginNavigating, setLoginNavigating] = useState(false);
 
@@ -39,9 +40,44 @@ export function HeaderNav() {
   }, []);
   useEffect(() => {
     if (!menuOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
+    const root = document.documentElement;
+    const body = document.body;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const previousTop = body.style.top;
+    const previousLeft = body.style.left;
+    body.style.top = -scrollY + "px";
+    body.style.left = -scrollX + "px";
+    root.classList.add("navigation-menu-open");
+    const blockBackground = (event: WheelEvent | TouchEvent) => {
+      if (event.target instanceof Node && drawerRef.current?.contains(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const scrollMenu = (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+      const drawer = drawerRef.current;
+      if (!drawer) return;
+      const target = event.target;
+      if (target instanceof Element && drawer.contains(target) && target.closest("input,textarea,select,[contenteditable=true]")) return;
+      const steps: Record<string, number> = { ArrowDown: 40, ArrowUp: -40, PageDown: drawer.clientHeight, PageUp: -drawer.clientHeight, Home: -drawer.scrollHeight, End: drawer.scrollHeight };
+      if (!(event.key in steps)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      drawer.scrollBy({ top: steps[event.key], behavior: "instant" });
+    };
+    window.addEventListener("wheel", blockBackground, { capture: true, passive: false });
+    window.addEventListener("touchmove", blockBackground, { capture: true, passive: false });
+    window.addEventListener("keydown", scrollMenu, true);
+    return () => {
+      window.removeEventListener("wheel", blockBackground, true);
+      window.removeEventListener("touchmove", blockBackground, true);
+      window.removeEventListener("keydown", scrollMenu, true);
+      root.classList.remove("navigation-menu-open");
+      body.style.top = previousTop;
+      body.style.left = previousLeft;
+      window.scrollTo({ left: scrollX, top: scrollY, behavior: "instant" });
+    };
   }, [menuOpen]);
 
   if (adminArea) return <nav className="header-nav admin-header-nav"><span className="admin-session-label">{pathname === "/admin/login" ? "管理画面" : "管理画面ログイン中"}</span>{pathname !== "/admin/login" && <form action="/api/admin/logout" method="post" className="header-logout admin-header-logout"><button type="submit">ログアウト</button></form>}</nav>;
@@ -93,7 +129,7 @@ export function HeaderNav() {
     <button type="button" className="menu-toggle" aria-label="メニューを開く" aria-expanded={menuOpen} aria-controls="mobile-header-menu" onClick={() => setMenuOpen(true)}><span /><span /><span /></button>
     {mounted && createPortal(<div className={`mobile-menu-layer ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen}>
       <button type="button" className="menu-backdrop" aria-label="メニューを閉じる" tabIndex={menuOpen ? 0 : -1} onClick={() => setMenuOpen(false)} />
-      <aside id="mobile-header-menu" className="mobile-menu-drawer" aria-label="メインメニュー" inert={!menuOpen ? true : undefined}>{menuItems(true)}</aside>
+      <aside ref={drawerRef} id="mobile-header-menu" className="mobile-menu-drawer" aria-label="メインメニュー" inert={!menuOpen ? true : undefined}>{menuItems(true)}</aside>
     </div>, document.body)}
   </nav>;
 }
