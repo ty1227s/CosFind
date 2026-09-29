@@ -17,9 +17,9 @@ type PageProps = { searchParams: Promise<{ company?: string }> };
 export default async function RailwayLinesPage({ searchParams }: PageProps) {
   const lines = await getRailwayLineDirectory();
   const requestedCompany = (await searchParams).company?.trim() ?? "";
-  const companies = [...new Set(lines.map((line) => line.company).filter(Boolean))].sort((left, right) => left.localeCompare(right, "ja"));
+  const companies = [...new Set(lines.flatMap((line) => line.companies).filter(Boolean))].sort((left, right) => left.localeCompare(right, "ja"));
   const selectedCompany = companies.includes(requestedCompany) ? requestedCompany : "";
-  const visibleLines = selectedCompany ? lines.filter((line) => line.company === selectedCompany) : lines;
+  const visibleLines = selectedCompany ? lines.filter((line) => line.companies.includes(selectedCompany)) : lines;
   const stationCount = new Set(lines.flatMap((line) => line.stations.map((station) => station.name))).size;
   return <><SiteHeader/><main className="area-directory-page">
     <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><span>路線から探す</span></nav>
