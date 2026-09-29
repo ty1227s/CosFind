@@ -13,27 +13,33 @@ export const metadata: Metadata = {
 };
 
 type PageProps = { searchParams: Promise<{ company?: string }> };
+const UNASSIGNED_COMPANY = "__unassigned__";
 
 export default async function RailwayLinesPage({ searchParams }: PageProps) {
   const lines = await getRailwayLineDirectory();
   const requestedCompany = (await searchParams).company?.trim() ?? "";
   const companies = [...new Set(lines.flatMap((line) => line.companies).filter(Boolean))].sort((left, right) => left.localeCompare(right, "ja"));
-  const selectedCompany = companies.includes(requestedCompany) ? requestedCompany : "";
-  const visibleLines = selectedCompany ? lines.filter((line) => line.companies.includes(selectedCompany)) : lines;
+  const unassignedLines = lines.filter((line) => line.companies.length === 0);
+  const selectedCompany = companies.includes(requestedCompany) || (requestedCompany === UNASSIGNED_COMPANY && unassignedLines.length > 0) ? requestedCompany : "";
+  const visibleLines = selectedCompany === UNASSIGNED_COMPANY ? unassignedLines : selectedCompany ? lines.filter((line) => line.companies.includes(selectedCompany)) : [];
+  const selectedCompanyLabel = selectedCompany === UNASSIGNED_COMPANY ? "鉄道会社未登録" : selectedCompany;
   const stationCount = new Set(lines.flatMap((line) => line.stations.map((station) => station.name))).size;
   return <><SiteHeader/><main className="area-directory-page">
     <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><span>路線から探す</span></nav>
     <header className="area-directory-hero">
       <p className="eyebrow">RAILWAY LINE DIRECTORY</p>
       <h1>路線からコスメ取扱店舗を探す</h1>
-      <p>路線を選ぶと、登録順に並んだ駅と、沿線のコスメ・スキンケア取扱店舗を確認できます。</p>
+      <p>鉄道会社、路線の順に選ぶと、登録順に並んだ駅と、沿線のコスメ・スキンケア取扱店舗を確認できます。</p>
       <dl><div><dt>登録路線</dt><dd>{lines.length}<small>路線</small></dd></div><div><dt>登録駅</dt><dd>{stationCount}<small>駅</small></dd></div></dl>
     </header>
-    {lines.length ? <section className="area-municipality-section" aria-labelledby="line-heading">
-      <div className="directory-section-heading"><h2 id="line-heading">路線を選択</h2><form className="railway-company-filter" action="/lines" method="get"><label><span>鉄道会社</span><select name="company" defaultValue={selectedCompany}><option value="">すべての鉄道会社</option>{companies.map((company)=><option key={company} value={company}>{company}</option>)}</select></label><button type="submit">絞り込む</button>{selectedCompany&&<Link href="/lines">解除</Link>}</form></div>
-      {visibleLines.length ? <div className="area-municipality-grid railway-line-directory-grid">{visibleLines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
+    {lines.length ? selectedCompany ? <section className="area-municipality-section" aria-labelledby="line-heading">
+      <div className="area-section-heading"><div><h2 id="line-heading">{selectedCompanyLabel}の路線</h2><p>路線を選ぶと登録駅を確認できます。</p></div><Link href="/lines">← 鉄道会社一覧へ戻る</Link></div>
+      <div className="area-municipality-grid railway-line-directory-grid">{visibleLines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
         <span className="railway-line-card-name">{line.imageUrl&&<img src={line.imageUrl} alt=""/>}<b>{line.name}</b></span><span>{line.stations.length}<small>駅</small></span>
-      </Link>)}</div> : <div className="area-empty compact"><b>該当する路線はありません</b><p>鉄道会社の指定を変更してください。</p></div>}
+      </Link>)}</div>
+    </section> : <section className="area-municipality-section" aria-labelledby="company-heading">
+      <h2 id="company-heading">鉄道会社を選択</h2>
+      <div className="area-municipality-grid railway-company-directory-grid">{companies.map((company) => <Link href={`/lines?company=${encodeURIComponent(company)}`} key={company}><b>{company}</b><span>{lines.filter((line) => line.companies.includes(company)).length}<small>路線</small></span></Link>)}{unassignedLines.length>0&&<Link href={`/lines?company=${UNASSIGNED_COMPANY}`}><b>鉄道会社未登録</b><span>{unassignedLines.length}<small>路線</small></span></Link>}</div>
     </section> : <div className="area-empty"><b>路線はまだ登録されていません</b><p>管理画面で路線と駅順を登録すると、ここに自動表示されます。</p></div>}
   </main></>;
 }
