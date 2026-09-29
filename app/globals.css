@@ -523,3 +523,4 @@ html,body{overflow-x:clip}
 @media(max-width:700px){.mobile-menu-drawer .drawer-brandmark .cosfind-wordmark{width:auto;height:36px;max-width:100%;object-fit:contain}}
 
 .station-location{margin:7px 0 0!important;color:#665b62!important;font-weight:700}
+.announcement-admin-list h2{margin-bottom:0}
