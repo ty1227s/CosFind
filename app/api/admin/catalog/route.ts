@@ -4,6 +4,7 @@ import { getAuthenticatedUser, isAuthenticatedAdmin, isSameOrigin } from "@/lib/
 import { UUID_PATTERN } from "@/lib/server/validation";
 import { isValidOperatingDate, operatingPeriodQuery } from "@/lib/store-operating-period";
 import { isPrefecture } from "@/lib/prefectures";
+import municipalitySource from "@/lib/municipalities.generated.json";
 
 type Entity = "brand" | "chain" | "product" | "store" | "station" | "railwayLine";
 type Brand = { name: string; nameKana?: string };
@@ -11,7 +12,7 @@ type Chain = { name: string; storeType: string };
 type Product = { brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; releaseDate?:string; spf?:number|null; pa?:string|null; variants: { name: string; colorCode?: string; janCode?: string; releaseDate?:string }[] };
 type StoreHours=Record<string,{openingTime:string;closingTime:string;closed:boolean}>;
 type Store = { id?: string; name: string; chain?: string; type: string; address: string; latitude: number; longitude: number; customName?:boolean; stationNames?:string[]; createdAt?:string; provisionalBrandIds?:string[]; openingTime?:string; closingTime?:string; openingDate?:string; closingDate?:string; businessHours?:StoreHours };
-type Station = { name: string; prefecture?: string; lineNames?: string[] };
+type Station = { name: string; prefecture?: string; municipality?: string; lineNames?: string[] };
 type RailwayLine = { name: string; companies?: string[]; company?: string; stationNames?: string[]; imageUrl?: string };
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -46,12 +47,12 @@ export async function GET() {
       if((metadataPage.data?.length??0)<1000)break;
     }
     const storeMetadata=new Map<string,{brandIds:string[];openingTime:string;closingTime:string;businessHours:StoreHours;customName:boolean;stationNames:string[]}>();
-    const stationMetadata=new Map<string,{prefecture:string;lineNames:string[];isActive:boolean}>();
+    const stationMetadata=new Map<string,{prefecture:string;municipality:string;lineNames:string[];isActive:boolean}>();
     const railwayLineMetadata=new Map<string,{companies:string[];stationNames:string[];imageUrl:string;isActive:boolean}>();
     for(const item of metadataRows){
-      const payload=item.payload as{metadataType?:string;storeId?:string;brandIds?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown;stationName?:unknown;prefecture?:unknown;lineName?:unknown;lineNames?:unknown;companies?:unknown;company?:unknown;imageUrl?:unknown;isActive?:unknown};
+      const payload=item.payload as{metadataType?:string;storeId?:string;brandIds?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown;stationName?:unknown;prefecture?:unknown;municipality?:unknown;lineName?:unknown;lineNames?:unknown;companies?:unknown;company?:unknown;imageUrl?:unknown;isActive?:unknown};
       if(payload.metadataType==="station_directory"&&typeof payload.stationName==="string"){
-        stationMetadata.set(payload.stationName,{prefecture:typeof payload.prefecture==="string"?payload.prefecture:"",lineNames:Array.isArray(payload.lineNames)?payload.lineNames.filter((name):name is string=>typeof name==="string"):[],isActive:payload.isActive!==false});
+        stationMetadata.set(payload.stationName,{prefecture:typeof payload.prefecture==="string"?payload.prefecture:"",municipality:typeof payload.municipality==="string"?payload.municipality:"",lineNames:Array.isArray(payload.lineNames)?payload.lineNames.filter((name):name is string=>typeof name==="string"):[],isActive:payload.isActive!==false});
         continue;
       }
       if(payload.metadataType==="railway_line_directory"&&typeof payload.lineName==="string"){
@@ -70,7 +71,7 @@ export async function GET() {
         stationNames:Array.isArray(payload.stationNames)?payload.stationNames.filter((name):name is string=>typeof name==="string"):previous.stationNames,
       });
     }
-    for(const metadata of storeMetadata.values())for(const stationName of metadata.stationNames)if(!stationMetadata.has(stationName))stationMetadata.set(stationName,{prefecture:"",lineNames:[],isActive:true});
+    for(const metadata of storeMetadata.values())for(const stationName of metadata.stationNames)if(!stationMetadata.has(stationName))stationMetadata.set(stationName,{prefecture:"",municipality:"",lineNames:[],isActive:true});
     const lineMembers=new Map<string,string[]>();
     for(const [stationName,metadata] of stationMetadata)if(metadata.isActive)for(const lineName of metadata.lineNames){const members=lineMembers.get(lineName)??[];if(!members.includes(stationName))members.push(stationName);lineMembers.set(lineName,members)}
     const railwayLineNames=new Set([...railwayLineMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const name of lineMembers.keys())railwayLineNames.add(name);
@@ -83,7 +84,7 @@ export async function GET() {
       chains: (chainsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, storeType: row.store_type })),
       products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name === variant.color_code ? "" : variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })) })),
       stores: (storesResult.data ?? []).map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,stationNames:metadata?.stationNames??[],createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
-      stations: [...stationMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name,metadata])=>({name,prefecture:metadata.prefecture,lineNames:metadata.lineNames})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
+      stations: [...stationMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name,metadata])=>({name,prefecture:metadata.prefecture,municipality:metadata.municipality,lineNames:metadata.lineNames})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       railwayLines: [...railwayLineNames].map(name=>{const members=lineMembers.get(name)??[];const configured=railwayLineMetadata.get(name);const preferred=configured?.stationNames??[];return{name,companies:configured?.companies??[],imageUrl:configured?.imageUrl??"",stationNames:[...preferred.filter(station=>members.includes(station)),...members.filter(station=>!preferred.includes(station)).sort((left,right)=>left.localeCompare(right,"ja"))]}}).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       productRequests: (productRequestsResult.data ?? []).map((row) => {const payload=(row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {};const reportStoreId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";return {...payload,id:row.id,submittedByUserId:row.user_id,reportStoreName:reportStoreId?requestStoreNames.get(reportStoreId)??"店舗情報なし":"",createdAt:row.created_at,status:"pending"}}),
       storeRequests: (storeRequestsResult.data ?? []).map((row) => ({ ...((row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {}), id: row.id, createdAt: row.created_at, status: "pending" })),
@@ -146,6 +147,9 @@ export async function POST(request: Request) {
       const prefectureCandidate=row.prefecture?.trim()??"";
       if(!isPrefecture(prefectureCandidate))throw new Error("都道府県を選択してください");
       const prefecture=prefectureCandidate;
+      const municipality=row.municipality?.trim()??"";
+      const municipalityMap=municipalitySource as Record<string,string[]>;
+      if(!municipality||!municipalityMap[prefecture]?.includes(municipality))throw new Error("都道府県に対応する市区町村を選択してください");
       const authUser=await getAuthenticatedUser();let ownerId=authUser?.id||"";
       if(!ownerId){const fallback=await db.from("profiles").select("id").order("created_at",{ascending:true}).limit(1).maybeSingle();if(fallback.error||!fallback.data)throw fallback.error||new Error("駅情報を保存できるプロフィールがありません");ownerId=fallback.data.id}
       const previousName=previous?.name?.trim()||"";
@@ -157,10 +161,10 @@ export async function POST(request: Request) {
         if(replacements.length){const changed=await db.from("store_requests").insert(replacements);if(changed.error)throw changed.error}
         const lineReplacements=[...latestLines.values()].filter(item=>item.payload.isActive!==false&&Array.isArray(item.payload.stationNames)&&item.payload.stationNames.includes(previousName)).map(item=>({user_id:item.userId||ownerId,status:"metadata",payload:{...item.payload,stationNames:(item.payload.stationNames as unknown[]).map(name=>name===previousName?stationName:name)}}));
         if(lineReplacements.length){const changed=await db.from("store_requests").insert(lineReplacements);if(changed.error)throw changed.error}
-        const retired=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName:previousName,prefecture:"",lineNames:[],isActive:false}});if(retired.error)throw retired.error;
+        const retired=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName:previousName,prefecture:"",municipality:"",lineNames:[],isActive:false}});if(retired.error)throw retired.error;
       }
-      const metadata=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName,prefecture,lineNames,isActive:true}});if(metadata.error)throw metadata.error;
-      savedData={name:stationName,prefecture,lineNames};
+      const metadata=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName,prefecture,municipality,lineNames,isActive:true}});if(metadata.error)throw metadata.error;
+      savedData={name:stationName,prefecture,municipality,lineNames};
     } else if (body.entity === "railwayLine") {
       const row=body.data as RailwayLine;const previous=body.previous as RailwayLine|undefined;
       const lineName=row.name.replace(/[\s　]+/g," ").trim().slice(0,60);if(!lineName)throw new Error("路線名を入力してください");
@@ -170,11 +174,11 @@ export async function POST(request: Request) {
       const authUser=await getAuthenticatedUser();let ownerId=authUser?.id||"";
       if(!ownerId){const fallback=await db.from("profiles").select("id").order("created_at",{ascending:true}).limit(1).maybeSingle();if(fallback.error||!fallback.data)throw fallback.error||new Error("路線情報を保存できるプロフィールがありません");ownerId=fallback.data.id}
       const metadataRows:Array<{payload:unknown;created_at:string}>=[];for(let from=0;;from+=1000){const page=await db.from("store_requests").select("payload,created_at").eq("status","metadata").order("created_at",{ascending:true}).range(from,from+999);if(page.error)throw page.error;metadataRows.push(...(page.data??[]));if((page.data?.length??0)<1000)break}
-      const latestStations=new Map<string,{prefecture:string;lineNames:string[];isActive:boolean}>();const storeStationNames=new Set<string>();
-      for(const item of metadataRows){const payload=item.payload&&typeof item.payload==="object"&&!Array.isArray(item.payload)?item.payload as Record<string,unknown>:{};if(payload.metadataType==="station_directory"&&typeof payload.stationName==="string")latestStations.set(payload.stationName,{prefecture:typeof payload.prefecture==="string"?payload.prefecture:"",lineNames:Array.isArray(payload.lineNames)?payload.lineNames.filter((name):name is string=>typeof name==="string"):[],isActive:payload.isActive!==false});if(typeof payload.storeId==="string"&&Array.isArray(payload.stationNames))for(const name of payload.stationNames)if(typeof name==="string")storeStationNames.add(name)}
-      for(const stationName of storeStationNames)if(!latestStations.has(stationName))latestStations.set(stationName,{prefecture:"",lineNames:[],isActive:true});
-      const previousName=previous?.name?.trim()||"";const selectedStations=new Set(stationNames);const stationUpdates:{user_id:string;status:"metadata";payload:{metadataType:"station_directory";stationName:string;prefecture:string;lineNames:string[];isActive:true}}[]=[];
-      for(const [stationName,station] of latestStations){if(!station.isActive)continue;const next=station.lineNames.filter(name=>name!==previousName&&name!==lineName);if(selectedStations.has(stationName))next.push(lineName);const lineNames=[...new Set(next)];if(lineNames.length!==station.lineNames.length||lineNames.some((name,index)=>name!==station.lineNames[index]))stationUpdates.push({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName,prefecture:station.prefecture,lineNames,isActive:true}})}
+      const latestStations=new Map<string,{prefecture:string;municipality:string;lineNames:string[];isActive:boolean}>();const storeStationNames=new Set<string>();
+      for(const item of metadataRows){const payload=item.payload&&typeof item.payload==="object"&&!Array.isArray(item.payload)?item.payload as Record<string,unknown>:{};if(payload.metadataType==="station_directory"&&typeof payload.stationName==="string")latestStations.set(payload.stationName,{prefecture:typeof payload.prefecture==="string"?payload.prefecture:"",municipality:typeof payload.municipality==="string"?payload.municipality:"",lineNames:Array.isArray(payload.lineNames)?payload.lineNames.filter((name):name is string=>typeof name==="string"):[],isActive:payload.isActive!==false});if(typeof payload.storeId==="string"&&Array.isArray(payload.stationNames))for(const name of payload.stationNames)if(typeof name==="string")storeStationNames.add(name)}
+      for(const stationName of storeStationNames)if(!latestStations.has(stationName))latestStations.set(stationName,{prefecture:"",municipality:"",lineNames:[],isActive:true});
+      const previousName=previous?.name?.trim()||"";const selectedStations=new Set(stationNames);const stationUpdates:{user_id:string;status:"metadata";payload:{metadataType:"station_directory";stationName:string;prefecture:string;municipality:string;lineNames:string[];isActive:true}}[]=[];
+      for(const [stationName,station] of latestStations){if(!station.isActive)continue;const next=station.lineNames.filter(name=>name!==previousName&&name!==lineName);if(selectedStations.has(stationName))next.push(lineName);const lineNames=[...new Set(next)];if(lineNames.length!==station.lineNames.length||lineNames.some((name,index)=>name!==station.lineNames[index]))stationUpdates.push({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName,prefecture:station.prefecture,municipality:station.municipality,lineNames,isActive:true}})}
       if(stationUpdates.length){const updated=await db.from("store_requests").insert(stationUpdates);if(updated.error)throw updated.error}
       if(previousName&&previousName!==lineName){const retired=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"railway_line_directory",lineName:previousName,stationNames:[],isActive:false}});if(retired.error)throw retired.error}
       const metadata=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"railway_line_directory",lineName,companies,stationNames,imageUrl,isActive:true}});if(metadata.error)throw metadata.error;

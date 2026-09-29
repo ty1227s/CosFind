@@ -47,6 +47,7 @@ export default async function StationPage({ params }: PageProps) {
       <p className="eyebrow">STATION STORE GUIDE</p>
       <h1>{stationName}周辺のコスメ取扱店舗</h1>
       <p>{stationName}が最寄り駅・周辺駅として登録されている、コスメやスキンケアの取扱店舗一覧です。</p>
+      {(station.prefecture||station.municipality)&&<p className="station-location">所在地：{station.prefecture}{station.municipality ? ` ${station.municipality}` : ""}</p>}
       {station.lineNames.length > 0 && <div className="station-line-list" aria-label="乗り入れ路線">{station.lineNames.map((line) => <Link href={railwayLineHref(line)} key={line}>{line}</Link>)}</div>}
       <dl><div><dt>登録店舗</dt><dd>{station.stores.length}<small>件</small></dd></div></dl>
     </header>
