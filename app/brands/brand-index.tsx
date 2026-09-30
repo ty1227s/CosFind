@@ -48,7 +48,7 @@ export async function BrandIndex({ requested = "" }: { requested?: string }) {
         <summary><b>{selected ? `選択中：${selected}` : "ブランドの頭文字を選択"}</b><span className="selector-open-label">頭文字一覧を閉じる <i>⌃</i></span><span className="selector-closed-label">頭文字を変更 <i>⌄</i></span></summary>
         <nav className="brand-initial-groups">
           <div><b>A–Z</b><span>{alphabet.map((letter) => initialButton(letter, counts.get(letter) || 0, selected))}</span></div>
-          <div><b>あ–ん</b><span>{hiragana.map((letter) => initialButton(letter, counts.get(letter) || 0, selected))}</span></div>
+          <div><b>あ–ん</b><span>{hiragana.filter((letter) => (counts.get(letter) || 0) > 0).map((letter) => initialButton(letter, counts.get(letter) || 0, selected))}</span></div>
           <div><b>その他</b><span>{initialButton("その他", counts.get("その他") || 0, selected)}</span></div>
         </nav>
       </details>
