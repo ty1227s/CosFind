@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { parseCoordinatePair } from "@/lib/coordinates";
 
 type Position = { latitude: number; longitude: number };
 
@@ -12,10 +13,14 @@ export function RequestCoordinatePicker({ address }: { address: string }) {
   const [position, setPosition] = useState<Position | null>(null);
   const positionRef = useRef<Position | null>(null);
   const searchSequence = useRef(0);
+  const addressSearchTimer = useRef<number | null>(null);
+  const pastedForAddress = useRef<string | null>(null);
   const [message, setMessage] = useState("地図をクリックして店舗位置にピンを立ててください（必須）");
+  const [coordinateText, setCoordinateText] = useState("");
+  const [coordinateMessage, setCoordinateMessage] = useState("");
 
-  function setPin(longitude: number, latitude: number) {
-    const next = { longitude: Number(longitude.toFixed(6)), latitude: Number(latitude.toFixed(6)) };
+  function setPin(longitude: number, latitude: number, preservePrecision = false) {
+    const next = preservePrecision ? { longitude, latitude } : { longitude: Number(longitude.toFixed(6)), latitude: Number(latitude.toFixed(6)) };
     setPosition(next);
     positionRef.current = next;
     if (!markerRef.current && mapRef.current && maplibreRef.current) {
@@ -59,12 +64,29 @@ export function RequestCoordinatePicker({ address }: { address: string }) {
   }
 
   useEffect(() => {
-    if (address.trim().length < 4) return;
-    const timer = window.setTimeout(() => void locateAddress(address), 900);
-    return () => window.clearTimeout(timer);
+    if (addressSearchTimer.current !== null) window.clearTimeout(addressSearchTimer.current);
+    const normalizedAddress = address.trim();
+    if (pastedForAddress.current === normalizedAddress) return;
+    pastedForAddress.current = null;
+    if (normalizedAddress.length < 4) return;
+    addressSearchTimer.current = window.setTimeout(() => void locateAddress(address), 900);
+    return () => { if (addressSearchTimer.current !== null) window.clearTimeout(addressSearchTimer.current); };
   }, [address]);
+
+  function applyCoordinateText(value: string) {
+    setCoordinateText(value);
+    if (!value.trim()) { setCoordinateMessage(""); return; }
+    const parsed = parseCoordinatePair(value);
+    if (!parsed) { setCoordinateMessage("「緯度, 経度」の順で貼り付けてください"); return; }
+    searchSequence.current += 1;
+    if (addressSearchTimer.current !== null) window.clearTimeout(addressSearchTimer.current);
+    pastedForAddress.current = address.trim();
+    setPin(parsed.longitude, parsed.latitude, true);
+    mapRef.current?.flyTo({ center: [parsed.longitude, parsed.latitude], zoom: 17, essential: true });
+    setCoordinateMessage("座標をピンと申請内容へ反映しました");
+  }
 
   function useCurrentLocation() { navigator.geolocation?.getCurrentPosition(({ coords }) => { setPin(coords.longitude, coords.latitude); mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 16 }); }, () => setMessage("現在地を取得できません。地図上で位置を指定してください")); }
 
-  return <div className="coordinate-picker"><div className="coordinate-head"><div><b>店舗位置のピン（必須）</b><small>{message}</small></div><span className="coordinate-actions"><button type="button" onClick={() => void locateAddress()}>住所から検索</button><button type="button" onClick={useCurrentLocation}>◎ 現在地</button></span></div><div ref={container} className="coordinate-map"/><div className="coordinate-values"><label>緯度<input name="latitude" value={position?.latitude ?? ""} readOnly required placeholder="ピンを指定"/></label><label>経度<input name="longitude" value={position?.longitude ?? ""} readOnly required placeholder="ピンを指定"/></label></div></div>;
+  return <div className="coordinate-picker"><div className="coordinate-head"><div><b>店舗位置のピン（必須）</b><small>{message}</small></div><span className="coordinate-actions"><button type="button" onClick={() => void locateAddress()}>住所から検索</button><button type="button" onClick={useCurrentLocation}>◎ 現在地</button></span></div><label className="coordinate-paste"><span>Google Mapsの座標を貼り付け</span><input value={coordinateText} onChange={(event) => applyCoordinateText(event.target.value)} placeholder="35.60844897527208, 139.73217222082997" inputMode="text"/><small data-error={coordinateMessage.includes("順で") || undefined}>{coordinateMessage || "緯度, 経度をまとめて貼り付けると即時反映します"}</small></label><div ref={container} className="coordinate-map"/><div className="coordinate-values"><label>緯度<input name="latitude" value={position?.latitude ?? ""} readOnly required placeholder="ピンを指定"/></label><label>経度<input name="longitude" value={position?.longitude ?? ""} readOnly required placeholder="ピンを指定"/></label></div></div>;
 }
