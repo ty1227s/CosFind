@@ -10,12 +10,18 @@ export function RequestCoordinatePicker({ address }: { address: string }) {
   const markerRef = useRef<import("maplibre-gl").Marker | null>(null);
   const maplibreRef = useRef<typeof import("maplibre-gl") | null>(null);
   const [position, setPosition] = useState<Position | null>(null);
+  const positionRef = useRef<Position | null>(null);
+  const searchSequence = useRef(0);
   const [message, setMessage] = useState("地図をクリックして店舗位置にピンを立ててください（必須）");
 
   function setPin(longitude: number, latitude: number) {
     const next = { longitude: Number(longitude.toFixed(6)), latitude: Number(latitude.toFixed(6)) };
     setPosition(next);
-    if (!markerRef.current && mapRef.current && maplibreRef.current) markerRef.current = new maplibreRef.current.Marker({ color: "#c32673", draggable: true }).setLngLat([next.longitude, next.latitude]).addTo(mapRef.current);
+    positionRef.current = next;
+    if (!markerRef.current && mapRef.current && maplibreRef.current) {
+      markerRef.current = new maplibreRef.current.Marker({ color: "#c32673", draggable: true }).setLngLat([next.longitude, next.latitude]).addTo(mapRef.current);
+      markerRef.current.on("dragend", () => { const point = markerRef.current?.getLngLat(); if (point) setPin(point.lng, point.lat); });
+    }
     else markerRef.current?.setLngLat([next.longitude, next.latitude]);
     setMessage("ピン位置を設定しました。クリックまたはドラッグで調整できます");
   }
@@ -30,28 +36,33 @@ export function RequestCoordinatePicker({ address }: { address: string }) {
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
       map.on("click", (event) => setPin(event.lngLat.lng, event.lngLat.lat));
       mapRef.current = map;
+      const currentPosition = positionRef.current;
+      if (currentPosition) setPin(currentPosition.longitude, currentPosition.latitude);
     });
     return () => { disposed = true; markerRef.current?.remove(); markerRef.current = null; mapRef.current?.remove(); mapRef.current = null; };
   }, []);
 
-  useEffect(() => {
-    const marker = markerRef.current;
-    if (!marker) return;
-    const update = () => { const point = marker.getLngLat(); setPin(point.lng, point.lat); };
-    marker.on("dragend", update);
-    return () => { marker.off("dragend", update); };
-  }, [position !== null]);
-
-  async function locateAddress() {
-    if (!address.trim()) return setMessage("住所は空欄でも構いません。地図上で位置を指定してください");
+  async function locateAddress(value = address) {
+    const query = value.trim();
+    if (!query) return setMessage("住所は空欄でも構いません。地図上で位置を指定してください");
+    const sequence = ++searchSequence.current;
     setMessage("住所を検索中…");
     try {
-      const response = await fetch(`/api/geocode?address=${encodeURIComponent(address.trim())}`);
-      const result = await response.json() as { latitude?: number; longitude?: number };
-      if (typeof result.latitude !== "number" || typeof result.longitude !== "number") return setMessage("住所が見つかりません。地図上で位置を指定してください");
+      const response = await fetch(`/api/geocode?address=${encodeURIComponent(query)}`);
+      if (!response.ok) throw new Error("geocode failed");
+      const result = await response.json() as { latitude?: number; longitude?: number; matchedQuery?: string; precision?: "full" | "street" | "town" };
+      if (sequence !== searchSequence.current) return;
+      if (typeof result.latitude !== "number" || typeof result.longitude !== "number") return setMessage("住所を特定できません。都道府県・市区町村・町名・番地の順で確認してください");
       setPin(result.longitude, result.latitude); mapRef.current?.flyTo({ center: [result.longitude, result.latitude], zoom: 16 });
-    } catch { setMessage("住所検索に失敗しました。地図上で位置を指定してください"); }
+      if (result.precision !== "full") setMessage(`${result.matchedQuery || "町名"}の代表位置です。地図で店舗位置を確認してください`);
+    } catch { if (sequence === searchSequence.current) setMessage("住所検索に失敗しました。再検索するか地図で位置を指定してください"); }
   }
+
+  useEffect(() => {
+    if (address.trim().length < 4) return;
+    const timer = window.setTimeout(() => void locateAddress(address), 900);
+    return () => window.clearTimeout(timer);
+  }, [address]);
 
   function useCurrentLocation() { navigator.geolocation?.getCurrentPosition(({ coords }) => { setPin(coords.longitude, coords.latitude); mapRef.current?.flyTo({ center: [coords.longitude, coords.latitude], zoom: 16 }); }, () => setMessage("現在地を取得できません。地図上で位置を指定してください")); }
 
