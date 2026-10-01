@@ -4,7 +4,6 @@ import Link from "next/link";
 import { MapView } from "./map-view";
 import { stores } from "@/lib/mock-data";
 import { catalogRepository, usesSupabaseCatalog } from "@/lib/data";
-import { LocationSelect } from "./location-select";
 import { calculateDistanceKm, readLocalCatalog } from "@/lib/local-catalog";
 import { formatStoreName } from "@/lib/store-name";
 import { getStoreTypeColor } from "@/lib/store-type-color";
@@ -18,7 +17,6 @@ import { CosFindLogo } from "./cosfind-logo";
 const fmt=(iso:string)=>new Intl.DateTimeFormat("ja-JP",{year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(iso));
 export function CosFindApp({ initialStation = "" }: { initialStation?: string }){
  const [selected,setSelected]=useState(usesSupabaseCatalog?"":stores[0].id); const [sort,setSort]=useState("near"); const [sheet,setSheet]=useState(false);
- const [prefecture,setPrefecture]=useState(""); const [municipality,setMunicipality]=useState("");
  const [storeResults,setStoreResults]=useState(usesSupabaseCatalog?[]:stores);
  const [visibleStoreIds,setVisibleStoreIds]=useState<string[]|null>(null);
  const [currentLocation,setCurrentLocation]=useState<{latitude:number;longitude:number}|null>(null);
@@ -28,7 +26,7 @@ export function CosFindApp({ initialStation = "" }: { initialStation?: string })
  const [openNowOnly,setOpenNowOnly]=useState(false);
  useEffect(()=>{if(usesSupabaseCatalog)return;const load=()=>{const local=readLocalCatalog();setStoreResults(local.stores);setSelected(current=>local.stores.some(s=>s.id===current)?current:(local.stores[0]?.id||""));navigator.geolocation?.getCurrentPosition(({coords})=>setStoreResults(current=>current.map(store=>({...store,distanceKm:calculateDistanceKm(coords.latitude,coords.longitude,store.latitude,store.longitude)}))),()=>undefined,{enableHighAccuracy:false,maximumAge:300000,timeout:5000})};load();window.addEventListener("storage",load);window.addEventListener("focus",load);return()=>{window.removeEventListener("storage",load);window.removeEventListener("focus",load)}},[]);
  useEffect(()=>{if(!usesSupabaseCatalog)return;let active=true;let inFlight=false;const load=async()=>{if(!active||inFlight)return;inFlight=true;try{const rows=await catalogRepository.getStores();if(active){setStoreResults(rows);setSelected(current=>rows.some(s=>s.id===current)?current:"")}}catch{}finally{inFlight=false}};const loadWhenVisible=()=>{if(document.visibilityState==="visible")void load()};void load();const timer=window.setInterval(loadWhenVisible,5000);window.addEventListener("focus",loadWhenVisible);document.addEventListener("visibilitychange",loadWhenVisible);return()=>{active=false;window.clearInterval(timer);window.removeEventListener("focus",loadWhenVisible);document.removeEventListener("visibilitychange",loadWhenVisible)}},[]);
- const mapStores=useMemo(()=>storeResults.map(store=>currentLocation?{...store,distanceKm:calculateDistanceKm(currentLocation.latitude,currentLocation.longitude,store.latitude,store.longitude)}:store).filter(s=>(!initialStation||s.stationNames?.includes(initialStation))&&(!prefecture||s.address.includes(prefecture))&&(!municipality||s.address.includes(municipality))&&(!openNowOnly||["open","closing-soon"].includes(getStoreOpenStatus(s.businessHours,currentTime)?.state??""))).sort((a,b)=>sort==="near"&&currentLocation?a.distanceKm-b.distanceKm:b.lastReportedAt.localeCompare(a.lastReportedAt)),[sort,storeResults,initialStation,prefecture,municipality,currentLocation,openNowOnly,currentTime]);
+ const mapStores=useMemo(()=>storeResults.map(store=>currentLocation?{...store,distanceKm:calculateDistanceKm(currentLocation.latitude,currentLocation.longitude,store.latitude,store.longitude)}:store).filter(s=>(!initialStation||s.stationNames?.includes(initialStation))&&(!openNowOnly||["open","closing-soon"].includes(getStoreOpenStatus(s.businessHours,currentTime)?.state??""))).sort((a,b)=>sort==="near"&&currentLocation?a.distanceKm-b.distanceKm:b.lastReportedAt.localeCompare(a.lastReportedAt)),[sort,storeResults,initialStation,currentLocation,openNowOnly,currentTime]);
  const visibleStoreIdSet=useMemo(()=>visibleStoreIds===null?null:new Set(visibleStoreIds),[visibleStoreIds]);
  const shown=useMemo(()=>visibleStoreIdSet===null?mapStores:mapStores.filter(store=>visibleStoreIdSet.has(store.id)),[mapStores,visibleStoreIdSet]);
  const active=mapStores.find(s=>s.id===selected);
@@ -42,7 +40,6 @@ export function CosFindApp({ initialStation = "" }: { initialStation?: string })
   <section className={`workspace${panelCollapsed?" panel-collapsed":""}`}>
    <aside id="store-search-panel" className={`panel ${sheet?"sheet-open":""}`}><button className="sheet-handle" onClick={()=>setSheet(v=>!v)} aria-label="店舗一覧を開閉"><span/></button>
     {initialStation&&<div className="station-map-filter"><span><b>{initialStation}</b>周辺の登録店舗を表示中</span><Link href="/">すべての店舗を表示</Link></div>}
-    <LocationSelect compact prefecture={prefecture} municipality={municipality} onPrefectureChange={setPrefecture} onMunicipalityChange={setMunicipality}/>
     <div className="map-store-filters"><label><input type="checkbox" checked={openNowOnly} onChange={event=>setOpenNowOnly(event.target.checked)}/><span><b>現在営業中のみ表示</b><small>営業時間が登録されている店舗から絞り込みます</small></span></label></div>
     <div className="list-head"><div><h2>店舗一覧</h2><span>{shown.length}件を表示</span></div><select value={sort} onChange={e=>setSort(e.target.value)} aria-label="並び替え"><option value="fresh">情報が新しい順</option><option value="near">現在地から近い順</option></select></div>
     <div className="store-list">{shown.slice(0,10).map((s,i)=>{const color=getStoreTypeColor(s.type);const reported=s.reportCount>0;return <button className={`store-card ${selected===s.id?"selected":""}`} key={s.id} onClick={()=>choose(s.id)}><div className="store-index" style={{backgroundColor:color.background,color:color.foreground}} title={s.type}>{i+1}</div><div className="store-copy"><span className="store-type-label">{s.type}</span><h3>{formatStoreName(s)}</h3><p>{s.address}</p><div className="meta"><span>最終情報 <b>{reported?fmt(s.lastReportedAt):"報告なし"}</b></span><span>{currentLocation?`${s.distanceKm.toFixed(1)} km`:"距離未取得"}</span></div></div><span className="chev">›</span></button>})}</div>
