@@ -108,6 +108,7 @@ export function HeaderNav() {
       <Link href="/products/new" onClick={() => setMenuOpen(false)}><span>✦</span>新作コスメ情報</Link>
       <Link href="/announcements" onClick={() => setMenuOpen(false)}><span>i</span>お知らせ</Link>
       <a href="https://x.com/CosFindApp" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}><span>𝕏</span>X（@CosFindApp）</a>
+      <a href="https://www.instagram.com/cosfindapp/" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}><span>IG</span>Instagram（@cosfindapp）</a>
     </div>
     {drawer && <PwaInstallButton />}
     {session.authenticated && session.isAdmin && <Link href="/admin" className="report-link admin-link" onClick={() => setMenuOpen(false)}>⚙ 管理画面へ</Link>}
