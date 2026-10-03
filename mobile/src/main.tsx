@@ -1,8 +1,11 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import {StrictMode} from "react";
+import {createRoot} from "react-dom/client";
 import "maplibre-gl/dist/maplibre-gl.css";
-import "./styles.css";
-import "./native-markers.css";
-import { App } from "./App";
-
-createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
+import "../../app/globals.css";
+import "./native.css";
+import {installApiTransport} from "./native/http";
+import {installNavigation} from "./native/events";
+import {installLifecycle} from "./native/lifecycle";
+import {App} from "./App";
+installApiTransport();installNavigation();installLifecycle();
+createRoot(document.getElementById("root")!).render(<StrictMode><App/></StrictMode>);

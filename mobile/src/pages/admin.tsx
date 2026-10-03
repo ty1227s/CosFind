@@ -1,0 +1,1 @@
+import {SiteHeader} from "@/components/site-header";import {AdminManager} from "@/components/admin-manager";export default function Page(){return <><SiteHeader/><AdminManager/></>;}

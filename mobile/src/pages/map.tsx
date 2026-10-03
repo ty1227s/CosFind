@@ -1,0 +1,1 @@
+import {CosFindApp} from "@/components/cosfind-app";import {useSearchParams} from "../compat/navigation";export default function Page(){const query=useSearchParams();return <CosFindApp initialStation={query.get("station")?.trim()||""}/>;}

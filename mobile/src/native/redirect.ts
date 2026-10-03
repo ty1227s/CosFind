@@ -1,0 +1,2 @@
+const hosts=new Set(["localhost","127.0.0.1","10.0.2.2"]);
+export function internalRedirect(location:string,origin:string){const base=new URL(origin),next=new URL(location,base);const local=base.protocol==="http:"&&next.protocol==="http:"&&hosts.has(base.hostname)&&hosts.has(next.hostname)&&base.port===next.port;if((next.origin!==base.origin&&!local)||next.username||next.password||next.pathname.startsWith("//"))throw new Error("不正な移動先です");return next.pathname+next.search+next.hash;}

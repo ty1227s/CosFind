@@ -1,0 +1,53 @@
+import "server-only";
+import {notFound} from "next/navigation";
+import {createSupabaseAdminClient} from "@/lib/supabase/admin";
+import {formatStoreName} from "@/lib/store-name";
+import {type StoreProductItem} from "@/components/store-product-list";
+import {getStoreTypeColor} from "@/lib/store-type-color";
+import {isStorePubliclyVisible} from "@/lib/store-operating-period";
+import {publicSiteOrigin} from "@/lib/area-directory";
+type Store = { id:string;name:string;chain:string;type:string;address:string;latitude:number;longitude:number;openingDate?:string;closingDate?:string;customName?:boolean;stationNames:string[] };
+type ReportRow = { product_id:string;reported_at:string;products:{id:string;name:string;category:string;additional_categories:string[]|null;brands:{name:string}|{name:string}[]|null}|null };
+type MetadataPayload = { metadataType?:unknown;brandIds?:unknown;brandId?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown };
+const WEEKDAYS=[{key:"mon",label:"月"},{key:"tue",label:"火"},{key:"wed",label:"水"},{key:"thu",label:"木"},{key:"fri",label:"金"},{key:"sat",label:"土"},{key:"sun",label:"日"}];
+export async function loadPage({ params }: { params: Promise<{ id: string }> }){
+  const { id } = await params;
+  const db = createSupabaseAdminClient();
+  let storeResult = await db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date").eq("id", id).eq("is_active", true).maybeSingle();
+  for (let attempt=0;storeResult.error&&attempt<2;attempt+=1) { await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));storeResult=await db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date").eq("id",id).eq("is_active",true).maybeSingle(); }
+  if (storeResult.error) return { loadError: true as const, id };
+  if (!storeResult.data || !isStorePubliclyVisible({openingDate:storeResult.data.opening_date,closingDate:storeResult.data.closing_date})) notFound();
+  const row=storeResult.data;
+  const store:Store={id:row.id,name:row.name,chain:row.chain_name??"",type:row.store_type,address:row.address,latitude:row.latitude,longitude:row.longitude,openingDate:row.opening_date??undefined,closingDate:row.closing_date??undefined,stationNames:[]};
+  const metadataResult=await db.from("store_requests").select("payload,created_at").eq("status","metadata").contains("payload",{storeId:id}).order("created_at",{ascending:false});
+  const metadataPayloads=(metadataResult.data??[]).map(item=>item.payload as MetadataPayload);
+  store.customName=metadataPayloads.find(payload=>typeof payload.customName==="boolean")?.customName===true;
+  const stationNames=metadataPayloads.find(payload=>Array.isArray(payload.stationNames))?.stationNames;
+  store.stationNames=Array.isArray(stationNames)?stationNames.filter((name):name is string=>typeof name==="string"):[];
+  const businessMetadata=metadataPayloads.find(payload=>payload.businessHours&&typeof payload.businessHours==="object")??metadataPayloads[0];
+  const openingTime=typeof businessMetadata?.openingTime==="string"?businessMetadata.openingTime:"";
+  const closingTime=typeof businessMetadata?.closingTime==="string"?businessMetadata.closingTime:"";
+  const businessHours=businessMetadata?.businessHours&&typeof businessMetadata.businessHours==="object"?businessMetadata.businessHours as Record<string,{openingTime?:string;closingTime?:string;closed?:boolean}>:{};
+  const weeklyHours=WEEKDAYS.map(({key,label})=>{const hours=businessHours[key];return{key,label,openingTime:hours?.openingTime||"",closingTime:hours?.closingTime||"",closed:hours?.closed===true}});
+  const hasWeeklyHours=weeklyHours.some(hours=>hours.closed||hours.openingTime||hours.closingTime);
+  const managedBrandIds=metadataPayloads.find(payload=>payload.metadataType==="store_provisional_brands"&&Array.isArray(payload.brandIds))?.brandIds;
+  const brandIds=[...new Set([...(Array.isArray(managedBrandIds)?managedBrandIds.filter((value):value is string=>typeof value==="string"):[]),...metadataPayloads.flatMap(payload=>typeof payload.brandId==="string"?[payload.brandId]:[])])];
+  const directBrandsResult=brandIds.length?await db.from("brands").select("name").in("id",brandIds):{data:[] as {name:string}[]};
+  const directBrands=(directBrandsResult.data??[]).map(brand=>brand.name);
+  const reportsResult=await db.from("stock_reports").select("product_id,reported_at,products(id,name,category,additional_categories,brands(name))").eq("store_id",id).eq("status","available").order("reported_at",{ascending:false}).limit(200);
+  const reports=(reportsResult.data??[]) as unknown as ReportRow[];
+  const seen=new Set<string>();
+  const recent=reports.filter(report=>report.products&&!seen.has(report.product_id)&&seen.add(report.product_id)).slice(0,10);
+  const stockBrands=reports.flatMap(report=>{const brands=report.products?.brands;const name=Array.isArray(brands)?brands[0]?.name:brands?.name;return name?[name]:[]});
+  const reportedBrands=[...new Set([...directBrands,...stockBrands])].sort((a,b)=>a.localeCompare(b,"ja")).slice(0,15);
+  const allBrandsResult=await db.from("brands").select("id,name").order("name");
+  const allBrands=(allBrandsResult.data??[]) as {id:string;name:string}[];
+  const productItems:StoreProductItem[]=recent.map(report=>{const product=report.products!;return{id:product.id,name:product.name,brand:Array.isArray(product.brands)?product.brands[0]?.name??"":product.brands?.name??"",category:product.category,additionalCategories:product.additional_categories??[],reportedAt:report.reported_at}});
+  const googleMapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${store.latitude},${store.longitude}`)}`;
+  const storeTypeColor=getStoreTypeColor(store.type);
+  const displayName=formatStoreName(store);
+  const pageUrl=`${publicSiteOrigin}/stores/${encodeURIComponent(store.id)}`;
+  const jsonLd={"@context":"https://schema.org","@type":"Store",name:displayName,url:pageUrl,description:`${store.type}のコスメ・スキンケア取扱情報`,address:{"@type":"PostalAddress",streetAddress:store.address,addressCountry:"JP"},geo:{"@type":"GeoCoordinates",latitude:store.latitude,longitude:store.longitude},keywords:[store.type,"コスメ","スキンケア",...store.stationNames].join(", "),additionalProperty:store.stationNames.map(name=>({"@type":"PropertyValue",name:"最寄り駅・周辺駅",value:name}))};
+
+  return {loadError:false as const,id,store,stationNames,openingTime,closingTime,weeklyHours,hasWeeklyHours,reportedBrands,allBrands,productItems,googleMapsUrl,storeTypeColor,displayName,jsonLd};
+}
