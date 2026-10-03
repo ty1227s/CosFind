@@ -21,8 +21,10 @@ import { LineTagEditor } from "./line-tag-editor";
 import { RailwayStationOrderEditor } from "./railway-station-order-editor";
 import { RailwayLineVisualEditor } from "./railway-line-visual-editor";
 import { RailwayCompanyEditor } from "./railway-company-editor";
+import { RailwayRegionEditor } from "./railway-region-editor";
 import { StationLocationEditor } from "./station-location-editor";
 import { PREFECTURES } from "@/lib/prefectures";
+import { RAILWAY_REGIONS } from "@/lib/railway-regions";
 import { ProductCategoryBadges } from "./product-category-badge";
 
 type Brand = { id: string; name: string; nameKana: string };
@@ -33,6 +35,7 @@ type StoreHours = Record<string,{openingTime:string;closingTime:string;closed:bo
 type Store = { id: string; name: string; chain: string; type: string; address: string; latitude: number; longitude: number; customName?:boolean; stationNames?:string[]; createdAt?:string; provisionalBrandIds?:string[]; openingTime?:string; closingTime?:string; openingDate?:string; closingDate?:string; businessHours?:StoreHours };
 type Station = { name: string; prefecture: string; municipality: string; lineNames: string[] };
 type RailwayLine = { name: string; companies: string[]; stationNames: string[]; visualType: "image" | "color"; imageUrl: string; lineColor: string };
+type RailwayCompany = { name: string; regions: string[] };
 type Tab = "brands" | "chains" | "products" | "stores" | "productRequests" | "storeRequests" | "users" | "announcements" | "stations" | "railwayLines";
 type DetailData = { title: string; fields: { label: string; value: React.ReactNode }[] };
 type AdminUser = { id:string;username:string;displayName:string;email:string;avatar:string;avatarUrl:string;status:string;postingSuspended:boolean;isAdmin:boolean;createdAt:string;lastSignInAt:string|null;stockReports:number;productRequests:number;storeRequests:number;points:number;favoriteProducts:number;favoriteStores:number };
@@ -42,7 +45,7 @@ const ADMIN_PAGE_SIZE = 20;
 const seedBrands: Brand[] = [...new Set(seedProducts.map((p) => p.brand))].map((name, index) => ({ id: `b${index + 1}`, name, nameKana: "" }));
 const seedChains: Chain[] = [...new Set(seedStores.map((s) => s.chain).filter(Boolean))].map((name, index) => ({ id: `c${index + 1}`, name, storeType: seedStores.find((s) => s.chain === name)?.type || STORE_TYPES[0] }));
 
-type CatalogResponse = { ok?: boolean; brands?: Brand[]; chains?: Chain[]; products?: Product[]; stores?: Store[]; stations?: Station[]; railwayLines?: RailwayLine[]; productRequests?: ProductRegistrationRequest[]; storeRequests?: StoreRegistrationRequest[] };
+type CatalogResponse = { ok?: boolean; brands?: Brand[]; chains?: Chain[]; products?: Product[]; stores?: Store[]; stations?: Station[]; railwayLines?: RailwayLine[]; railwayCompanies?: RailwayCompany[]; productRequests?: ProductRegistrationRequest[]; storeRequests?: StoreRegistrationRequest[] };
 
 async function readApiJson<T>(response: Response, action: string): Promise<T> {
   const text = await response.text();
@@ -62,6 +65,7 @@ export function AdminManager() {
   const [stores, setStores] = useState<Store[]>(usesSupabaseCatalog ? [] : seedStores);
   const [stations, setStations] = useState<Station[]>([]);
   const [railwayLines, setRailwayLines] = useState<RailwayLine[]>([]);
+  const [railwayCompanies, setRailwayCompanies] = useState<RailwayCompany[]>([]);
   const [productRequests, setProductRequests] = useState<ProductRegistrationRequest[]>([]);
   const [storeRequests, setStoreRequests] = useState<StoreRegistrationRequest[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -73,6 +77,7 @@ export function AdminManager() {
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [editingStation, setEditingStation] = useState<Station | null>(null);
   const [editingRailwayLine, setEditingRailwayLine] = useState<RailwayLine | null>(null);
+  const [editingRailwayCompany, setEditingRailwayCompany] = useState<RailwayCompany | null>(null);
   const [search, setSearch] = useState("");
   const [prefecture, setPrefecture] = useState("");
   const [municipality, setMunicipality] = useState("");
@@ -119,6 +124,7 @@ export function AdminManager() {
         setStores(remote.stores ?? []);
         setStations(remote.stations ?? []);
         setRailwayLines(remote.railwayLines ?? []);
+        setRailwayCompanies(remote.railwayCompanies ?? []);
         setProductRequests(remote.productRequests ?? []);
         setStoreRequests(remote.storeRequests ?? []);
       })
@@ -137,8 +143,8 @@ export function AdminManager() {
     function onKeyDown(event: KeyboardEvent) {
       if (event.repeat) return;
       const command = event.ctrlKey || event.metaKey;
-      const editing = Boolean(editingBrand || editingChain || editingProduct || editingStore || editingStation || editingRailwayLine || viewing);
-      if (event.key === "Escape") { const modal = document.querySelector(".admin-modal"); if (modal) { window.dispatchEvent(new Event("cosfind-close-modal")); return; } setShortcutHelp(false); setViewing(null); setEditingBrand(null); setEditingChain(null); setEditingProduct(null); setEditingStore(null); setEditingStation(null); setEditingRailwayLine(null); return; }
+      const editing = Boolean(editingBrand || editingChain || editingProduct || editingStore || editingStation || editingRailwayLine || editingRailwayCompany || viewing);
+      if (event.key === "Escape") { const modal = document.querySelector(".admin-modal"); if (modal) { window.dispatchEvent(new Event("cosfind-close-modal")); return; } setShortcutHelp(false); setViewing(null); setEditingBrand(null); setEditingChain(null); setEditingProduct(null); setEditingStore(null); setEditingStation(null); setEditingRailwayLine(null); setEditingRailwayCompany(null); return; }
       if (!event.altKey || command) return;
       if (event.key.toLowerCase() === "k") { event.preventDefault(); if (shortcutHelp) window.dispatchEvent(new Event("cosfind-close-modal")); else setShortcutHelp(true); return; }
       if (event.key === "/") { event.preventDefault(); const input = document.querySelector<HTMLInputElement>(".admin-toolbar input"); input?.focus(); input?.select(); return; }
@@ -150,7 +156,7 @@ export function AdminManager() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingBrand, editingChain, editingProduct, editingStore, editingStation, editingRailwayLine, viewing, shortcutHelp, tab, brands, chains, productBrandFilter]);
+  }, [editingBrand, editingChain, editingProduct, editingStore, editingStation, editingRailwayLine, editingRailwayCompany, viewing, shortcutHelp, tab, brands, chains, productBrandFilter]);
 
   const q = search.toLowerCase();
   const brandRows = useMemo(() => brands.filter((b) => `${b.name} ${b.nameKana}`.toLowerCase().includes(q)), [brands, q]);
@@ -162,7 +168,7 @@ export function AdminManager() {
   const storeFilterChains = useMemo(() => storeTypeFilter ? chains.filter((chain) => chain.storeType === storeTypeFilter) : [], [chains, storeTypeFilter]);
   const userRows = useMemo(() => users.filter((user) => `${user.username} ${user.displayName} ${user.email} ${user.id}`.toLowerCase().includes(q)), [users, q]);
   const stationRows = useMemo(() => stations.filter((station) => `${station.name} ${station.prefecture} ${station.municipality} ${station.lineNames.join(" ")}`.toLowerCase().includes(q) && (!stationPrefectureFilter || (stationPrefectureFilter === "__unassigned__" ? !station.prefecture : station.prefecture === stationPrefectureFilter))), [stations, q, stationPrefectureFilter]);
-  const railwayCompanies = useMemo(() => [...new Set(railwayLines.flatMap((line) => line.companies).filter(Boolean))].sort((left, right) => left.localeCompare(right, "ja")), [railwayLines]);
+  const railwayCompanyNames = useMemo(() => [...new Set([...railwayCompanies.map((company) => company.name), ...railwayLines.flatMap((line) => line.companies)].filter(Boolean))].sort((left, right) => left.localeCompare(right, "ja")), [railwayCompanies, railwayLines]);
   const railwayLineRows = useMemo(() => railwayLines.filter((line) => `${line.name} ${line.companies.join(" ")} ${line.stationNames.join(" ")}`.toLowerCase().includes(q) && (!railwayCompanyFilter || (railwayCompanyFilter === "__unassigned__" ? !line.companies.length : line.companies.includes(railwayCompanyFilter)))), [railwayLines, q, railwayCompanyFilter]);
   const rowCount = tab === "brands" ? brandRows.length : tab === "chains" ? chainRows.length : tab === "products" ? productRows.length : tab === "stores" ? storeRows.length : tab === "stations" ? stationRows.length : tab === "railwayLines" ? railwayLineRows.length : tab === "productRequests" ? productRequests.length : tab === "storeRequests" ? storeRequests.length : tab === "users" ? userRows.length : 0;
   const pageCount = Math.max(1, Math.ceil(rowCount / ADMIN_PAGE_SIZE));
@@ -182,12 +188,12 @@ export function AdminManager() {
   useEffect(() => { setPage(1); }, [tab, search, chainTypeFilter, productCategoryFilter, productBrandFilter, storeTypeFilter, storeChainFilter, stationPrefectureFilter, railwayCompanyFilter, prefecture, municipality, createdSort]);
   useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
 
-  async function persistCatalog(entity: "brand" | "chain" | "product" | "store" | "station" | "railwayLine", data: Brand | Chain | Product | Store | Station | RailwayLine, previous?: Brand | Chain | Product | Store | Station | RailwayLine, method: "POST" | "DELETE" = "POST") {
+  async function persistCatalog(entity: "brand" | "chain" | "product" | "store" | "station" | "railwayLine" | "railwayCompany", data: Brand | Chain | Product | Store | Station | RailwayLine | RailwayCompany, previous?: Brand | Chain | Product | Store | Station | RailwayLine | RailwayCompany, method: "POST" | "DELETE" = "POST") {
     try {
       const request = () => fetch("/api/admin/catalog", { method, headers: { "Accept": "application/json", "Content-Type": "application/json" }, body: JSON.stringify({ entity, data, previous }) });
       let response = await request();
       if (response.status === 401) response = await request();
-      const result = await readApiJson<{ ok?: boolean; error?: string; data?: Brand | Chain | Product | Store | Station | RailwayLine }>(response, method === "DELETE" ? "削除" : "保存");
+      const result = await readApiJson<{ ok?: boolean; error?: string; data?: Brand | Chain | Product | Store | Station | RailwayLine | RailwayCompany }>(response, method === "DELETE" ? "削除" : "保存");
       if (!response.ok || !result.ok) throw new Error(result.error || "Supabaseへの保存に失敗しました");
       if (usesSupabaseCatalog) setTimeout(() => { void reloadCatalog(); }, 0);
       return result;
@@ -208,6 +214,7 @@ export function AdminManager() {
     setStores(remote.stores ?? []);
     setStations(remote.stations ?? []);
     setRailwayLines(remote.railwayLines ?? []);
+    setRailwayCompanies(remote.railwayCompanies ?? []);
     setProductRequests(remote.productRequests ?? []);
     setStoreRequests(remote.storeRequests ?? []);
   }
@@ -295,6 +302,20 @@ export function AdminManager() {
     if (oldName && oldName !== confirmed.name) setStores((items) => items.map((store) => ({ ...store, stationNames: (store.stationNames ?? []).map((station) => station === oldName ? confirmed.name : station) })));
     setEditingStation(null);
   }
+  async function saveRailwayCompany(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") || "").replace(/[\s　]+/g, " ").trim();
+    const regions = [...new Set(form.getAll("regions").map(String).filter((region) => RAILWAY_REGIONS.includes(region as (typeof RAILWAY_REGIONS)[number])))];
+    if (!name) return alert("鉄道会社を選択してください。");
+    const row: RailwayCompany = { name, regions };
+    const saved = await persistCatalog("railwayCompany", row, railwayCompanies.find((company) => company.name === name));
+    if (!saved) return;
+    const confirmed = (saved.data as RailwayCompany | undefined) ?? row;
+    setRailwayCompanies((items) => items.some((company) => company.name === name) ? items.map((company) => company.name === name ? confirmed : company) : [...items, confirmed].sort((left,right)=>left.name.localeCompare(right.name,"ja")));
+    setEditingRailwayCompany(null);
+  }
+
   async function saveRailwayLine(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -347,7 +368,7 @@ export function AdminManager() {
     {tab === "products" && <div className="admin-filters"><label><span>カテゴリ</span><select value={productCategoryFilter} onChange={(event) => setProductCategoryFilter(event.target.value)}><option value="">すべてのカテゴリ</option>{productCategories.map((category) => <option key={category} value={category}>{category}</option>)}</select></label><label><span>ブランド</span><select value={productBrandFilter} onChange={(event) => setProductBrandFilter(event.target.value)}><option value="">すべてのブランド</option>{brands.map((brand) => <option key={brand.id} value={brand.name}>{brand.name}</option>)}</select></label><label><span>登録日時順</span><select value={createdSort} onChange={(event) => setCreatedSort(event.target.value as "newest" | "oldest")}><option value="newest">新しい順</option><option value="oldest">古い順</option></select></label><button type="button" onClick={() => { setProductCategoryFilter(""); setProductBrandFilter(""); }}>条件をクリア</button><small>{productRows.length}件</small></div>}
     {tab === "stores" && <><div className="admin-filters"><label><span>店舗カテゴリ（必須）</span><select value={storeTypeFilter} onChange={(event) => { setStoreTypeFilter(event.target.value); setStoreChainFilter(""); }}><option value="">店舗カテゴリを選択</option>{STORE_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select></label><label><span>チェーン</span><select value={storeChainFilter} disabled={!storeTypeFilter} onChange={(event) => setStoreChainFilter(event.target.value)}><option value="">{storeTypeFilter ? "すべてのチェーン" : "先に店舗カテゴリを選択"}</option>{storeFilterChains.map((chain) => <option key={chain.id} value={chain.name}>{chain.name}</option>)}</select></label><label><span>登録日時順</span><select value={createdSort} onChange={(event) => setCreatedSort(event.target.value as "newest" | "oldest")}><option value="newest">新しい順</option><option value="oldest">古い順</option></select></label><button type="button" onClick={() => { setStoreTypeFilter(""); setStoreChainFilter(""); }}>条件をクリア</button><small>{storeRows.length}件</small></div><LocationSelect prefecture={prefecture} municipality={municipality} onPrefectureChange={setPrefecture} onMunicipalityChange={setMunicipality} storeAddresses={storeAddresses}/></>}
     {tab === "stations" && <div className="admin-filters"><label><span>都道府県</span><select value={stationPrefectureFilter} onChange={(event) => setStationPrefectureFilter(event.target.value)}><option value="">すべての都道府県</option><option value="__unassigned__">未登録</option>{PREFECTURES.map((prefecture)=><option key={prefecture} value={prefecture}>{prefecture}</option>)}</select></label><button type="button" onClick={() => setStationPrefectureFilter("")}>条件をクリア</button><small>{stationRows.length}件</small></div>}
-    {tab === "railwayLines" && <div className="admin-filters"><label><span>鉄道会社</span><select value={railwayCompanyFilter} onChange={(event) => setRailwayCompanyFilter(event.target.value)}><option value="">すべての鉄道会社</option><option value="__unassigned__">未登録</option>{railwayCompanies.map((company)=><option key={company} value={company}>{company}</option>)}</select></label><button type="button" onClick={() => setRailwayCompanyFilter("")}>条件をクリア</button><small>{railwayLineRows.length}件</small></div>}
+    {tab === "railwayLines" && <><div className="admin-filters"><label><span>鉄道会社</span><select value={railwayCompanyFilter} onChange={(event) => setRailwayCompanyFilter(event.target.value)}><option value="">すべての鉄道会社</option><option value="__unassigned__">未登録</option>{railwayCompanyNames.map((company)=><option key={company} value={company}>{company}</option>)}</select></label><button type="button" onClick={() => setRailwayCompanyFilter("")}>条件をクリア</button><button type="button" onClick={() => setEditingRailwayCompany({name:railwayCompanyNames[0]??"",regions:railwayCompanies.find((company)=>company.name===railwayCompanyNames[0])?.regions??[]})} disabled={!railwayCompanyNames.length}>鉄道会社の地域分類</button><small>{railwayLineRows.length}件</small></div><div className="railway-company-region-summary" aria-label="鉄道会社の地域分類">{railwayCompanies.map((company)=><button type="button" key={company.name} onClick={()=>setEditingRailwayCompany(company)}><b>{company.name}</b><span>{company.regions.join(" / ")||"地域未登録"}</span></button>)}</div></>}
     {tab === "brands" && <div className="admin-table"><div className="table-head brand-cols"><span>ブランド名</span><span>ブランド名（かな）</span><span>登録商品</span><span>操作</span></div>{visibleBrandRows.map((b) => <div className="table-row brand-cols" key={b.id}><span><b>{b.name}</b></span><span>{b.nameKana || "—"}</span><span>{products.filter((p) => p.brand === b.name).length}商品</span><Actions view={() => setViewing({title:`ブランド詳細：${b.name}`,fields:[{label:"ブランド名",value:b.name},{label:"ブランド名（かな）",value:b.nameKana||"未登録"},{label:"登録商品数",value:`${products.filter((p)=>p.brand===b.name).length}商品`},{label:"登録ID",value:b.id}]})} edit={() => setEditingBrand(b)} remove={() => removeBrand(b)}/></div>)}</div>}
     {tab === "chains" && <div className="admin-table"><div className="table-head chain-cols"><span>チェーン名</span><span>店舗種別</span><span>登録店舗</span><span>操作</span></div>{visibleChainRows.map((chain) => <div className="table-row chain-cols" key={chain.id}><span><b>{chain.name}</b></span><span><StoreTypeBadge type={chain.storeType}/></span><span>{stores.filter((store) => store.chain === chain.name).length}店舗</span><Actions view={() => setViewing({title:`チェーン詳細：${chain.name}`,fields:[{label:"チェーン名",value:chain.name},{label:"店舗カテゴリ",value:chain.storeType},{label:"登録店舗数",value:`${stores.filter((store)=>store.chain===chain.name).length}店舗`},{label:"登録ID",value:chain.id}]})} edit={() => setEditingChain(chain)} remove={() => removeChain(chain)}/></div>)}</div>}
 {tab === "products" && <div className="admin-table"><div className="table-head product-cols"><span>商品 / ブランド</span><span>カテゴリ</span><span>カラー</span><span>JAN</span><span>登録日時</span><span>操作</span></div>{visibleProductRows.map((p) => <div className="table-row product-cols" key={p.id}><span><b>{p.name}</b><small>{p.brand}</small></span><ProductCategoryBadges categories={[p.category,...(p.additionalCategories??[])]}/><span>{Math.max(1,p.variants.length)}種</span><span>{[p.janCode,...(p.additionalJanCodes??[])].filter(Boolean).join(" / ") || "—"}</span><span>{formatCreatedAt(p.createdAt)}</span><Actions view={() => setViewing({title:`商品詳細：${p.name}`,fields:[{label:"ブランド",value:p.brand},{label:"商品名",value:p.name},{label:"主カテゴリ",value:<ProductCategoryBadges categories={[p.category]}/>},{label:"追加カテゴリ",value:p.additionalCategories?.length?<ProductCategoryBadges categories={p.additionalCategories}/>:"未登録"},{label:"SPF",value:p.spf==null?"未設定":String(p.spf)},{label:"PA",value:p.pa||"未設定"},{label:"代表JAN",value:p.janCode||"未登録"},{label:"追加JAN",value:p.additionalJanCodes?.join("\n")||"未登録"},{label:"カラー / 色番 / JAN",value:p.variants.length?p.variants.map((v)=>`${v.colorCode||"色番なし"} ${v.name} / ${v.janCode||"JANなし"}`).join("\n"):"未登録"},{label:"登録ID",value:p.id}]})} edit={() => setEditingProduct(p)} remove={() => void removeProduct(p)}/></div>)}</div>}
@@ -364,7 +385,8 @@ export function AdminManager() {
     {editingProduct && <Modal title={approvingRequest?.kind === "product" ? "商品申請を編集して承認" : editingProduct.id ? "商品を編集" : "商品を登録"} close={() => { setApprovingRequest(null); setEditingProduct(null); }} submit={saveProduct}><div className="form-grid"><Field label="ブランド"><select name="brand" defaultValue={editingProduct.brand} required>{!brands.some((brand)=>brand.name===editingProduct.brand)&&<option value={editingProduct.brand}>{editingProduct.brand}</option>}{brands.map((b) => <option key={b.id}>{b.name}</option>)}</select></Field><Field label="商品名"><input name="name" defaultValue={editingProduct.name} required/></Field><ProductCategoryEditor primaryCategory={editingProduct.category} additionalCategories={editingProduct.additionalCategories??[]}/><ProductJanEditor primaryJanCode={editingProduct.janCode} additionalJanCodes={editingProduct.additionalJanCodes??[]}/><Field label="発売日"><input name="releaseDate" type="date" defaultValue={editingProduct.releaseDate||""}/></Field><Field label="SPF（数値のみ）"><input name="spf" type="number" min="0" step="1" defaultValue={editingProduct.spf??""}/></Field><Field label="PA"><select name="pa" defaultValue={editingProduct.pa||""}><option value="">未設定</option><option value="+">+</option><option value="++">++</option><option value="+++">+++</option><option value="++++">++++</option></select></Field></div><ProductVariantsEditor variants={editingProduct.variants}/></Modal>}
     {editingStore && <Modal title={approvingRequest?.kind === "store" ? "店舗申請を編集して承認" : editingStore.id ? "店舗を編集" : "店舗を登録"} close={() => { setApprovingRequest(null); setEditingStore(null); }} submit={saveStore}><StoreEditorFields store={editingStore} chains={chains} brands={brands} stations={stations}/><div className="form-grid store-operating-period"><Field label="開店日（この日から公開）"><input name="openingDate" type="date" defaultValue={editingStore.openingDate||""}/></Field><Field label="閉店日（この日から非公開）"><input name="closingDate" type="date" defaultValue={editingStore.closingDate||""}/></Field></div></Modal>}
     {editingStation && <Modal title={editingStation.name ? "駅名タグを編集" : "駅名タグを登録"} close={() => setEditingStation(null)} submit={saveStation}><div className="form-grid"><Field label="駅名"><input name="name" defaultValue={editingStation.name} placeholder="例：新宿駅" required/></Field></div><StationLocationEditor initialPrefecture={editingStation.prefecture} initialMunicipality={editingStation.municipality}/><LineTagEditor initialNames={editingStation.lineNames} suggestions={railwayLines.map((line)=>line.name)}/></Modal>}
-    {editingRailwayLine && <Modal title={editingRailwayLine.name ? "路線を編集" : "路線を登録"} close={() => setEditingRailwayLine(null)} submit={saveRailwayLine}><div className="form-grid"><Field label="路線名"><input name="name" defaultValue={editingRailwayLine.name} placeholder="例：JR山手線" required/></Field></div><RailwayCompanyEditor initialNames={editingRailwayLine.companies} suggestions={railwayCompanies}/><RailwayLineVisualEditor initialType={editingRailwayLine.visualType} initialImageUrl={editingRailwayLine.imageUrl} initialLineColor={editingRailwayLine.lineColor}/><RailwayStationOrderEditor stationNames={stations.map((station)=>station.name)} initialNames={editingRailwayLine.stationNames}/></Modal>}
+    {editingRailwayLine && <Modal title={editingRailwayLine.name ? "路線を編集" : "路線を登録"} close={() => setEditingRailwayLine(null)} submit={saveRailwayLine}><div className="form-grid"><Field label="路線名"><input name="name" defaultValue={editingRailwayLine.name} placeholder="例：JR山手線" required/></Field></div><RailwayCompanyEditor initialNames={editingRailwayLine.companies} suggestions={railwayCompanyNames}/><RailwayLineVisualEditor initialType={editingRailwayLine.visualType} initialImageUrl={editingRailwayLine.imageUrl} initialLineColor={editingRailwayLine.lineColor}/><RailwayStationOrderEditor stationNames={stations.map((station)=>station.name)} initialNames={editingRailwayLine.stationNames}/></Modal>}
+    {editingRailwayCompany && <Modal title="鉄道会社の地域分類を編集" close={() => setEditingRailwayCompany(null)} submit={saveRailwayCompany}><div className="form-grid"><Field label="鉄道会社"><select name="name" value={editingRailwayCompany.name} onChange={(event)=>{const company=railwayCompanies.find((item)=>item.name===event.target.value);setEditingRailwayCompany({name:event.target.value,regions:company?.regions??[]})}} required>{railwayCompanyNames.map((company)=><option key={company} value={company}>{company}</option>)}</select></Field></div><RailwayRegionEditor key={editingRailwayCompany.name} initialRegions={editingRailwayCompany.regions}/></Modal>}
     {viewing && <DetailModal data={viewing} close={() => setViewing(null)}/>}
     {shortcutHelp && <ShortcutHelp close={() => setShortcutHelp(false)}/>}
   </main>;

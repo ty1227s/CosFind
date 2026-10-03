@@ -3,6 +3,7 @@ import { cache } from "react";
 import municipalitySource from "@/lib/municipalities.generated.json";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
+import { isRailwayRegion } from "@/lib/railway-regions";
 
 type MunicipalitySource = Record<string, string[]>;
 type StoreRow = {
@@ -14,7 +15,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; municipality?: unknown; lineName?: unknown; lineNames?: unknown; companies?: unknown; company?: unknown; visualType?: unknown; imageUrl?: unknown; lineColor?: unknown; isActive?: unknown };
+type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; municipality?: unknown; lineName?: unknown; lineNames?: unknown; companies?: unknown; company?: unknown; companyName?: unknown; regions?: unknown; visualType?: unknown; imageUrl?: unknown; lineColor?: unknown; isActive?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -31,6 +32,7 @@ export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
 export type StationDirectory = { name: string; prefecture: string; municipality: string; lineNames: string[]; stores: AreaStore[] };
 export type RailwayLineDirectory = { name: string; companies: string[]; visualType: "image" | "color"; imageUrl: string; lineColor: string; stations: StationDirectory[]; stores: AreaStore[] };
+export type RailwayCompanyDirectory = { name: string; regions: string[]; lineCount: number };
 
 const municipalities = municipalitySource as MunicipalitySource;
 const prefectureOrder = Object.keys(municipalities);
@@ -205,6 +207,25 @@ export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirect
     for (const station of members) for (const store of station.stores) stores.set(store.id, store);
     return { name, companies:configuredLines.get(name)?.companies??[], visualType:configuredLines.get(name)?.visualType??"color", imageUrl:configuredLines.get(name)?.imageUrl??"", lineColor:configuredLines.get(name)?.lineColor??"", stations: members, stores: [...stores.values()] };
   }).sort((left, right) => left.name.localeCompare(right.name, "ja"));
+});
+
+export const getRailwayCompanyDirectory = cache(async (): Promise<RailwayCompanyDirectory[]> => {
+  const [lines, metadataRows] = await Promise.all([getRailwayLineDirectory(), getDirectoryMetadataRows()]);
+  const configured = new Map<string, { regions: string[]; isActive: boolean }>();
+  for (const row of metadataRows) {
+    const payload = row.payload as MetadataPayload | null;
+    if (payload?.metadataType !== "railway_company_directory" || typeof payload.companyName !== "string") continue;
+    configured.set(payload.companyName, {
+      regions: Array.isArray(payload.regions) ? [...new Set(payload.regions.filter((region): region is string => typeof region === "string" && isRailwayRegion(region)))] : [],
+      isActive: payload.isActive !== false,
+    });
+  }
+  const names = new Set(lines.flatMap((line) => line.companies));
+  for (const [name, metadata] of configured) if (metadata.isActive) names.add(name);
+  return [...names]
+    .filter((name) => configured.get(name)?.isActive !== false)
+    .map((name) => ({ name, regions: configured.get(name)?.regions ?? [], lineCount: lines.filter((line) => line.companies.includes(name)).length }))
+    .sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
 
 export function areaHref(prefecture?: string, municipality?: string) {

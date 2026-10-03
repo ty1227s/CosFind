@@ -5,8 +5,9 @@ import { UUID_PATTERN } from "@/lib/server/validation";
 import { isValidOperatingDate, operatingPeriodQuery } from "@/lib/store-operating-period";
 import { isPrefecture } from "@/lib/prefectures";
 import municipalitySource from "@/lib/municipalities.generated.json";
+import { isRailwayRegion } from "@/lib/railway-regions";
 
-type Entity = "brand" | "chain" | "product" | "store" | "station" | "railwayLine";
+type Entity = "brand" | "chain" | "product" | "store" | "station" | "railwayLine" | "railwayCompany";
 type Brand = { name: string; nameKana?: string };
 type Chain = { name: string; storeType: string };
 type Product = { brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; releaseDate?:string; spf?:number|null; pa?:string|null; variants: { name: string; colorCode?: string; janCode?: string; releaseDate?:string }[] };
@@ -14,6 +15,7 @@ type StoreHours=Record<string,{openingTime:string;closingTime:string;closed:bool
 type Store = { id?: string; name: string; chain?: string; type: string; address: string; latitude: number; longitude: number; customName?:boolean; stationNames?:string[]; createdAt?:string; provisionalBrandIds?:string[]; openingTime?:string; closingTime?:string; openingDate?:string; closingDate?:string; businessHours?:StoreHours };
 type Station = { name: string; prefecture?: string; municipality?: string; lineNames?: string[] };
 type RailwayLine = { name: string; companies?: string[]; company?: string; stationNames?: string[]; visualType?: "image" | "color"; imageUrl?: string; lineColor?: string };
+type RailwayCompany = { name: string; regions?: string[] };
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
@@ -49,8 +51,13 @@ export async function GET() {
     const storeMetadata=new Map<string,{brandIds:string[];openingTime:string;closingTime:string;businessHours:StoreHours;customName:boolean;stationNames:string[]}>();
     const stationMetadata=new Map<string,{prefecture:string;municipality:string;lineNames:string[];isActive:boolean}>();
     const railwayLineMetadata=new Map<string,{companies:string[];stationNames:string[];visualType:"image"|"color";imageUrl:string;lineColor:string;isActive:boolean}>();
+    const railwayCompanyMetadata=new Map<string,{regions:string[];isActive:boolean}>();
     for(const item of metadataRows){
-      const payload=item.payload as{metadataType?:string;storeId?:string;brandIds?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown;stationName?:unknown;prefecture?:unknown;municipality?:unknown;lineName?:unknown;lineNames?:unknown;companies?:unknown;company?:unknown;visualType?:unknown;imageUrl?:unknown;lineColor?:unknown;isActive?:unknown};
+      const payload=item.payload as{metadataType?:string;storeId?:string;brandIds?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown;stationName?:unknown;prefecture?:unknown;municipality?:unknown;lineName?:unknown;lineNames?:unknown;companies?:unknown;company?:unknown;companyName?:unknown;regions?:unknown;visualType?:unknown;imageUrl?:unknown;lineColor?:unknown;isActive?:unknown};
+      if(payload.metadataType==="railway_company_directory"&&typeof payload.companyName==="string"){
+        railwayCompanyMetadata.set(payload.companyName,{regions:Array.isArray(payload.regions)?payload.regions.filter((region):region is string=>typeof region==="string"&&isRailwayRegion(region)):[],isActive:payload.isActive!==false});
+        continue;
+      }
       if(payload.metadataType==="station_directory"&&typeof payload.stationName==="string"){
         stationMetadata.set(payload.stationName,{prefecture:typeof payload.prefecture==="string"?payload.prefecture:"",municipality:typeof payload.municipality==="string"?payload.municipality:"",lineNames:Array.isArray(payload.lineNames)?payload.lineNames.filter((name):name is string=>typeof name==="string"):[],isActive:payload.isActive!==false});
         continue;
@@ -76,6 +83,7 @@ export async function GET() {
     const lineMembers=new Map<string,string[]>();
     for(const [stationName,metadata] of stationMetadata)if(metadata.isActive)for(const lineName of metadata.lineNames){const members=lineMembers.get(lineName)??[];if(!members.includes(stationName))members.push(stationName);lineMembers.set(lineName,members)}
     const railwayLineNames=new Set([...railwayLineMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const name of lineMembers.keys())railwayLineNames.add(name);
+    const railwayCompanyNames=new Set([...railwayCompanyMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const metadata of railwayLineMetadata.values())if(metadata.isActive)for(const company of metadata.companies)railwayCompanyNames.add(company);
     type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
     const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
     const requestStoreNames=new Map((storesResult.data??[]).map(store=>[store.id,[store.chain_name,store.name].filter(Boolean).join(" ")]));
@@ -87,6 +95,7 @@ export async function GET() {
       stores: (storesResult.data ?? []).map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,stationNames:metadata?.stationNames??[],createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
       stations: [...stationMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name,metadata])=>({name,prefecture:metadata.prefecture,municipality:metadata.municipality,lineNames:metadata.lineNames})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       railwayLines: [...railwayLineNames].map(name=>{const members=lineMembers.get(name)??[];const configured=railwayLineMetadata.get(name);const preferred=configured?.stationNames??[];return{name,companies:configured?.companies??[],visualType:configured?.visualType??"color",imageUrl:configured?.imageUrl??"",lineColor:configured?.lineColor??"",stationNames:[...preferred.filter(station=>members.includes(station)),...members.filter(station=>!preferred.includes(station)).sort((left,right)=>left.localeCompare(right,"ja"))]}}).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
+      railwayCompanies: [...railwayCompanyNames].map(name=>({name,regions:railwayCompanyMetadata.get(name)?.regions??[]})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       productRequests: (productRequestsResult.data ?? []).map((row) => {const payload=(row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {};const reportStoreId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";return {...payload,id:row.id,submittedByUserId:row.user_id,reportStoreName:reportStoreId?requestStoreNames.get(reportStoreId)??"店舗情報なし":"",createdAt:row.created_at,status:"pending"}}),
       storeRequests: (storeRequestsResult.data ?? []).map((row) => ({ ...((row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) ? row.payload as Record<string, unknown> : {}), id: row.id, createdAt: row.created_at, status: "pending" })),
     });
@@ -108,7 +117,7 @@ export async function POST(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "不正なリクエストです" }, { status: 403 });
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
-    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store | Station | RailwayLine; previous?: Brand | Chain | Product | Store | Station | RailwayLine };
+    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store | Station | RailwayLine | RailwayCompany; previous?: Brand | Chain | Product | Store | Station | RailwayLine | RailwayCompany };
     let savedData: unknown;
     const db = createSupabaseAdminClient();
     if (body.entity === "brand") {
@@ -166,6 +175,16 @@ export async function POST(request: Request) {
       }
       const metadata=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"station_directory",stationName,prefecture,municipality,lineNames,isActive:true}});if(metadata.error)throw metadata.error;
       savedData={name:stationName,prefecture,municipality,lineNames};
+    } else if (body.entity === "railwayCompany") {
+      const row=body.data as RailwayCompany;const previous=body.previous as RailwayCompany|undefined;
+      const companyName=row.name.replace(/[\s　]+/g," ").trim().slice(0,80);if(!companyName)throw new Error("鉄道会社名を入力してください");
+      const regions=[...new Set((row.regions??[]).filter((region):region is string=>typeof region==="string"&&isRailwayRegion(region)))];
+      const authUser=await getAuthenticatedUser();let ownerId=authUser?.id||"";
+      if(!ownerId){const fallback=await db.from("profiles").select("id").order("created_at",{ascending:true}).limit(1).maybeSingle();if(fallback.error||!fallback.data)throw fallback.error||new Error("鉄道会社情報を保存できるプロフィールがありません");ownerId=fallback.data.id}
+      const previousName=previous?.name?.trim()||"";
+      if(previousName&&previousName!==companyName){const retired=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"railway_company_directory",companyName:previousName,regions:[],isActive:false}});if(retired.error)throw retired.error}
+      const metadata=await db.from("store_requests").insert({user_id:ownerId,status:"metadata",payload:{metadataType:"railway_company_directory",companyName,regions,isActive:true}});if(metadata.error)throw metadata.error;
+      savedData={name:companyName,regions};
     } else if (body.entity === "railwayLine") {
       const row=body.data as RailwayLine;const previous=body.previous as RailwayLine|undefined;
       const lineName=row.name.replace(/[\s　]+/g," ").trim().slice(0,60);if(!lineName)throw new Error("路線名を入力してください");
