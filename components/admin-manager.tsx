@@ -138,7 +138,7 @@ export function AdminManager() {
   useEffect(() => { if (ready && !usesSupabaseCatalog) localStorage.setItem(REQUEST_KEYS.products, JSON.stringify(productRequests)); }, [productRequests, ready]);
   useEffect(() => { if (ready && !usesSupabaseCatalog) localStorage.setItem(REQUEST_KEYS.stores, JSON.stringify(storeRequests)); }, [storeRequests, ready]);
   useEffect(() => { if(usesSupabaseCatalog)return;const reload=()=>{setProductRequests(readRequests<ProductRegistrationRequest>(REQUEST_KEYS.products));setStoreRequests(readRequests<StoreRegistrationRequest>(REQUEST_KEYS.stores))};window.addEventListener("storage",reload);window.addEventListener("cosfind-requests-updated",reload);window.addEventListener("focus",reload);return()=>{window.removeEventListener("storage",reload);window.removeEventListener("cosfind-requests-updated",reload);window.removeEventListener("focus",reload)}},[]);
-  useEffect(() => { if (!ready) return; void fetch("/api/admin/users", { cache: "no-store" }).then(async (response) => { const data = await response.json() as { users?: AdminUser[]; error?: string }; if (!response.ok) throw new Error(data.error || "ユーザー一覧を取得できませんでした"); setUsers(data.users ?? []); setUsersError(""); }).catch((error) => setUsersError(error instanceof Error ? error.message : "ユーザー一覧を取得できませんでした")); }, [ready]);
+  useEffect(() => { if (!ready || tab !== "users" || users.length) return; void fetch("/api/admin/users", { cache: "no-store" }).then(async (response) => { const data = await response.json() as { users?: AdminUser[]; error?: string }; if (!response.ok) throw new Error(data.error || "ユーザー一覧を取得できませんでした"); setUsers(data.users ?? []); setUsersError(""); }).catch((error) => setUsersError(error instanceof Error ? error.message : "ユーザー一覧を取得できませんでした")); }, [ready, tab, users.length]);
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.repeat) return;
@@ -195,28 +195,11 @@ export function AdminManager() {
       if (response.status === 401) response = await request();
       const result = await readApiJson<{ ok?: boolean; error?: string; data?: Brand | Chain | Product | Store | Station | RailwayLine | RailwayCompany }>(response, method === "DELETE" ? "削除" : "保存");
       if (!response.ok || !result.ok) throw new Error(result.error || "Supabaseへの保存に失敗しました");
-      if (usesSupabaseCatalog) setTimeout(() => { void reloadCatalog(); }, 0);
       return result;
     } catch (error) {
       alert(error instanceof Error ? error.message : "Supabaseへの保存に失敗しました");
       return false;
     }
-  }
-
-  async function reloadCatalog() {
-    const response = await fetch("/api/admin/catalog", { cache: "no-store", headers: { "Accept": "application/json" } });
-    if (!response.ok) return;
-    const remote = await readApiJson<CatalogResponse>(response, "再読み込み").catch(() => null);
-    if (!remote) return;
-    setBrands(remote.brands ?? []);
-    setChains(remote.chains ?? []);
-    setProducts(remote.products ?? []);
-    setStores(remote.stores ?? []);
-    setStations(remote.stations ?? []);
-    setRailwayLines(remote.railwayLines ?? []);
-    setRailwayCompanies(remote.railwayCompanies ?? []);
-    setProductRequests(remote.productRequests ?? []);
-    setStoreRequests(remote.storeRequests ?? []);
   }
 
   async function updateRequestStatus(kind: "product" | "store", id: string, status: "approved" | "rejected", product?:Product) {
@@ -340,11 +323,7 @@ export function AdminManager() {
   }
   async function removeStore(store: Store) {
     if (confirm(`「${formatStoreName(store)}」を削除しますか？`) && await persistCatalog("store", store, undefined, "DELETE")) {
-      if (usesSupabaseCatalog) {
-        const response = await fetch("/api/admin/catalog", { cache: "no-store" });
-        const remote = await response.json() as CatalogResponse;
-        setStores(remote.stores ?? []);
-      } else setStores((items) => items.filter((item) => item.id !== store.id));
+      setStores((items) => items.filter((item) => item.id !== store.id));
     }
   }
   function reviewProductRequest(request: ProductRegistrationRequest) { setApprovingRequest({ kind: "product", id: request.id }); setEditingProduct({ id: "", brand: request.brand, name: request.name, category: request.category, additionalCategories:[], janCode: request.janCode, additionalJanCodes:[], pa:request.pa||null, variants: request.variantName || request.colorCode || request.variantJanCode ? [{ id: crypto.randomUUID(), name: request.variantName, colorCode: request.colorCode, janCode: request.variantJanCode }] : [] }); }

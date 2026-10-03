@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSameOrigin } from "@/lib/server/security";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
+import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
 
 export const dynamic = "force-dynamic";
 type Kind = "product" | "store";
@@ -20,12 +21,12 @@ export async function GET() {
     productIds.length ? db.from("products").select("id,name,category,additional_categories,brands(name),product_variants(variant_name,color_code)").in("id", productIds).eq("is_active", true) : Promise.resolve({ data: [], error: null }),
     storeIds.length ? operatingPeriodQuery(db.from("stores").select("id,name,chain_name,address").in("id", storeIds).eq("is_active", true)) : Promise.resolve({ data: [], error: null }),
   ]);
-  const metadataResult = storeIds.length ? await db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }) : { data: [], error: null };
-  const error = productsResult.error || storesResult.error || metadataResult.error; if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  let metadataRows: {payload:unknown;created_at:string}[]=[];if(storeIds.length){try{metadataRows=await readLatestCatalogMetadata(db,["store_provisional_brands"],false,storeIds)}catch(error){return NextResponse.json({error:error instanceof Error?error.message:"店舗付加情報を取得できませんでした"},{status:500})}}
+  const error = productsResult.error || storesResult.error; if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   type ProductRow = { id: string; name: string; category: string; additional_categories: string[] | null; brands: { name: string } | { name: string }[] | null; product_variants: { variant_name: string; color_code: string | null }[] };
   const products = ((productsResult.data ?? []) as unknown as ProductRow[]).map((row) => ({ id: row.id, name: row.name, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", category: row.category, additionalCategories: row.additional_categories ?? [], variants: row.product_variants.map((variant) => ({ name: variant.variant_name, colorCode: variant.color_code ?? "" })) }));
   const customNames = new Map<string, boolean>();
-  for (const row of metadataResult.data ?? []) { const payload=row.payload as {storeId?:unknown;customName?:unknown};if(typeof payload.storeId==="string"&&typeof payload.customName==="boolean")customNames.set(payload.storeId,payload.customName); }
+  for (const row of metadataRows) { const payload=row.payload as {storeId?:unknown;customName?:unknown};if(typeof payload.storeId==="string"&&typeof payload.customName==="boolean")customNames.set(payload.storeId,payload.customName); }
   const stores = (storesResult.data ?? []).map((row) => ({ id: row.id, name: row.name, chain: row.chain_name ?? "", customName:customNames.get(row.id)===true, address: row.address }));
   return NextResponse.json({ productIds, storeIds, products, stores }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -4,6 +4,7 @@ import municipalitySource from "@/lib/municipalities.generated.json";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
 import { isRailwayRegion } from "@/lib/railway-regions";
+import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
 
 type MunicipalitySource = Record<string, string[]>;
 type StoreRow = {
@@ -39,14 +40,11 @@ const prefectureOrder = Object.keys(municipalities);
 type MetadataRow = { payload: unknown; created_at: string };
 const getDirectoryMetadataRows = cache(async (): Promise<MetadataRow[]> => {
   const db = createSupabaseAdminClient();
-  const rows: MetadataRow[] = [];
-  for (let from = 0; ; from += 1000) {
-    const page = await db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }).range(from, from + 999);
-    if (page.error) throw new Error(`地域・駅・路線情報の取得に失敗しました: ${page.error.message}`);
-    rows.push(...(page.data ?? []));
-    if ((page.data?.length ?? 0) < 1000) break;
+  try {
+    return await readLatestCatalogMetadata(db, ["store_provisional_brands", "station_directory", "railway_line_directory", "railway_company_directory"]);
+  } catch (error) {
+    throw new Error(`地域・駅・路線情報の取得に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`);
   }
-  return rows;
 });
 const municipalityCandidates = Object.fromEntries(
   Object.entries(municipalities).map(([prefecture, values]) => [

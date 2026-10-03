@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { isPointEligibleStoreRequest } from "@/lib/server/point-eligibility";
 import { isAuthenticatedAdmin } from "@/lib/server/security";
 
 export const dynamic = "force-dynamic";
@@ -23,19 +22,21 @@ export async function GET() {
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
     const db = createSupabaseAdminClient();
-    const [profiles, authUsers, reports, productRequests, storeRequests] = await Promise.all([
+    const [profiles, authUsers, activity] = await Promise.all([
       db.from("profiles").select("id,username,created_at,status,posting_suspended,is_admin").order("created_at", { ascending: false }),
       db.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      db.from("stock_reports").select("user_id"),
-      db.from("product_requests").select("user_id"),
-      db.from("store_requests").select("user_id,status,payload"),
+      db.rpc("admin_user_activity"),
     ]);
-    const error = profiles.error || authUsers.error || reports.error || productRequests.error || storeRequests.error;
+    const error = profiles.error || authUsers.error;
     if (error) throw error;
     const authById = new Map(authUsers.data.users.map((user) => [user.id, user]));
-    const reportCounts = countByUser(reports.data);
-    const productRequestCounts = countByUser(productRequests.data);
-    const storeRequestCounts = countByUser((storeRequests.data ?? []).filter(isPointEligibleStoreRequest));
+    let reportCounts=new Map<string,number>();let productRequestCounts=new Map<string,number>();let storeRequestCounts=new Map<string,number>();
+    if(!activity.error){for(const row of activity.data??[]){reportCounts.set(row.user_id,Number(row.stock_reports??0));productRequestCounts.set(row.user_id,Number(row.product_requests??0));storeRequestCounts.set(row.user_id,Number(row.store_requests??0));}}
+    else if(activity.error.code==="PGRST202"||activity.error.code==="42883"){
+      const [reports,productRequests,storeRequests,brandReports]=await Promise.all([db.from("stock_reports").select("user_id"),db.from("product_requests").select("user_id"),db.from("store_requests").select("user_id").neq("status","metadata"),db.from("store_requests").select("user_id").eq("status","metadata").eq("payload->>metadataType","store_brand_report")]);
+      const fallbackError=reports.error||productRequests.error||storeRequests.error||brandReports.error;if(fallbackError)throw fallbackError;
+      reportCounts=countByUser(reports.data);productRequestCounts=countByUser(productRequests.data);storeRequestCounts=countByUser([...(storeRequests.data??[]),...(brandReports.data??[])]);
+    } else throw activity.error;
     const users = (profiles.data ?? []).map((profile) => {
       const auth = authById.get(profile.id);
       const stockReports = reportCounts.get(profile.id) ?? 0;

@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { clientAddress, consumeRateLimit } from "@/lib/server/security";
 import { UUID_PATTERN } from "@/lib/server/validation";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
+import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
 
 export async function GET(request: Request) {
   const rate = await consumeRateLimit(`store-metadata:${clientAddress(request)}`, 120, 60_000);
@@ -14,13 +15,9 @@ export async function GET(request: Request) {
   if(visibleResult.error)return NextResponse.json({error:"店舗情報を取得できませんでした"},{status:500});
   const requested = new Set((visibleResult.data??[]).map(store=>store.id));
   if(!requested.size)return NextResponse.json({stores:{}});
-  const metadataRows: Array<{payload:unknown;created_at:string}> = [];
-  for(let from=0;;from+=1000){
-    const page=await db.from("store_requests").select("payload,created_at").eq("status", "metadata").in("payload->>storeId", [...requested]).order("created_at", { ascending: true }).range(from,from+999);
-    if(page.error)return NextResponse.json({error:"店舗付加情報を取得できませんでした"},{status:500});
-    metadataRows.push(...(page.data??[]));
-    if((page.data?.length??0)<1000)break;
-  }
+  let metadataRows;
+  try { metadataRows=await readLatestCatalogMetadata(db,["store_provisional_brands"],false,[...requested]); }
+  catch { return NextResponse.json({error:"店舗付加情報を取得できませんでした"},{status:500}); }
   const stores: Record<string, { businessHours: unknown; customName: boolean; stationNames: string[] }> = {};
   for (const row of metadataRows) {
     const payload = row.payload as { storeId?: unknown; businessHours?: unknown; customName?: unknown; stationNames?: unknown };
