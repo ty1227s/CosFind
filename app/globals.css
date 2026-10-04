@@ -541,7 +541,6 @@ html.navigation-menu-open body>:not(.mobile-menu-layer),html.navigation-menu-ope
 html.navigation-menu-open::-webkit-scrollbar,html.navigation-menu-open body>:not(.mobile-menu-layer)::-webkit-scrollbar,html.navigation-menu-open body>:not(.mobile-menu-layer) *::-webkit-scrollbar{display:none!important}
 html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavior:contain}
 
-
 /* Drawer profile and outlined navigation actions. */
 #mobile-header-menu {
   --drawer-pink: #dc299e;
@@ -653,7 +652,7 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
   border-radius: 0;
   background: #fff;
   color: #8c898b;
-  font-size: 22px !important;
+  font-size: 19px !important;
   font-weight: 400;
   line-height: 1.4;
   text-decoration: none;
@@ -680,7 +679,7 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
   box-shadow: none;
   text-align: center;
   text-decoration: none;
-  font-size: 16px !important;
+  font-size: 14px !important;
   font-weight: 700;
 }
 #mobile-header-menu > .report-link:hover,
