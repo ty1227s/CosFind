@@ -540,3 +540,172 @@ html.navigation-menu-open body{position:fixed!important;width:100%;overflow:hidd
 html.navigation-menu-open body>:not(.mobile-menu-layer),html.navigation-menu-open body>:not(.mobile-menu-layer) *{scrollbar-width:none!important}
 html.navigation-menu-open::-webkit-scrollbar,html.navigation-menu-open body>:not(.mobile-menu-layer)::-webkit-scrollbar,html.navigation-menu-open body>:not(.mobile-menu-layer) *::-webkit-scrollbar{display:none!important}
 html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavior:contain}
+
+
+/* Drawer profile and outlined navigation actions. */
+#mobile-header-menu {
+  --drawer-pink: #dc299e;
+  padding: 0 0 max(24px, env(safe-area-inset-bottom));
+  gap: 12px;
+  background: #fff;
+}
+#mobile-header-menu .drawer-profile-banner {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 200px;
+  padding: calc(54px + env(safe-area-inset-top)) 26px 24px;
+  background: var(--drawer-pink);
+  color: #fff;
+}
+#mobile-header-menu .drawer-profile-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  text-decoration: none;
+  white-space: normal;
+}
+#mobile-header-menu .drawer-profile-name {
+  max-width: 100%;
+  font-size: clamp(25px, 6vw, 36px);
+  line-height: 1.3;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+#mobile-header-menu .drawer-profile-handle {
+  max-width: 100%;
+  margin-top: 2px;
+  font-size: 22px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+#mobile-header-menu .drawer-profile-points {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin-top: 18px;
+  color: #fff;
+}
+#mobile-header-menu .drawer-profile-points b {
+  font-size: 34px;
+  line-height: 1;
+}
+#mobile-header-menu .drawer-profile-points > span {
+  font-size: 24px;
+}
+#mobile-header-menu .mobile-menu-close {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+#mobile-header-menu .mobile-menu-close:hover {
+  background: #ffffff20;
+}
+#mobile-header-menu .drawer-profile-guest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  color: #fff;
+  font-size: 24px;
+}
+#mobile-header-menu .drawer-profile-home {
+  display: block;
+  width: auto;
+  padding: 0;
+}
+#mobile-header-menu .drawer-profile-home .cosfind-wordmark {
+  width: 150px;
+  max-width: 100%;
+  height: auto;
+  filter: brightness(0) invert(1);
+}
+#mobile-header-menu .drawer-primary-navigation {
+  display: grid;
+  gap: 10px;
+  margin: 0 20px 8px;
+  padding: 0;
+  border: 0;
+}
+#mobile-header-menu .drawer-primary-navigation > a {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  padding: 12px 6px 8px;
+  border: 0;
+  border-bottom: 5px solid #8c898b;
+  border-radius: 0;
+  background: #fff;
+  color: #8c898b;
+  font-size: 22px !important;
+  font-weight: 400;
+  line-height: 1.4;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+#mobile-header-menu .drawer-primary-navigation > a > span {
+  display: none;
+}
+#mobile-header-menu .drawer-primary-navigation > a:hover {
+  background: #fff5fb;
+  color: var(--drawer-pink);
+  border-bottom-color: var(--drawer-pink);
+}
+#mobile-header-menu > .report-link,
+#mobile-header-menu > .request-link {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 0 20px;
+  padding: 12px 10px !important;
+  border: 2px solid var(--drawer-pink);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--drawer-pink);
+  box-shadow: none;
+  text-align: center;
+  text-decoration: none;
+  font-size: 16px !important;
+  font-weight: 700;
+}
+#mobile-header-menu > .report-link:hover,
+#mobile-header-menu > .request-link:hover {
+  background: #fff0f9;
+}
+#mobile-header-menu > .header-logout,
+#mobile-header-menu > .drawer-login-link {
+  width: calc(100% - 40px);
+  margin: 0 20px;
+}
+#mobile-header-menu > .drawer-login-link {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  min-height: 46px;
+  color: var(--drawer-pink);
+  text-decoration: none;
+}
+#mobile-header-menu a:focus-visible,
+#mobile-header-menu button:focus-visible {
+  outline: 3px solid var(--drawer-pink);
+  outline-offset: 3px;
+}
+#mobile-header-menu .drawer-profile-banner a:focus-visible,
+#mobile-header-menu .drawer-profile-banner button:focus-visible {
+  outline-color: #fff;
+}

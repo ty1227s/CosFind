@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { PwaInstallButton } from "./pwa-install-manager";
 import { CosFindLogo } from "./cosfind-logo";
 
-type Session = { authenticated: boolean; isAdmin?: boolean; username?: string; avatar?: string; avatarUrl?: string; points?: number };
+type Session = { authenticated: boolean; isAdmin?: boolean; username?: string; handle?: string; avatar?: string; avatarUrl?: string; points?: number };
 
 export function HeaderNav() {
   const pathname = usePathname();
@@ -25,7 +25,7 @@ export function HeaderNav() {
     let active = true;
     const load = () => void fetch("/api/auth/session", { cache: "no-store" })
       .then((response) => response.json() as Promise<Partial<Session>>)
-      .then((result) => { if (active) { setSession({ authenticated: Boolean(result.authenticated), isAdmin: Boolean(result.isAdmin), username: result.username, avatar: result.avatar, avatarUrl: result.avatarUrl, points: result.points }); setSessionChecked(true); } })
+      .then((result) => { if (active) { setSession({ authenticated: Boolean(result.authenticated), isAdmin: Boolean(result.isAdmin), username: result.username, handle: result.handle, avatar: result.avatar, avatarUrl: result.avatarUrl, points: result.points }); setSessionChecked(true); } })
       .catch(() => { if (active) { setSession({ authenticated: false }); setSessionChecked(true); } });
     load();
     window.addEventListener("focus", load);
@@ -93,11 +93,35 @@ export function HeaderNav() {
   );
 
   const menuItems = (drawer = false) => <>
-    {drawer && <button type="button" className="mobile-menu-close" aria-label="メニューを閉じる" onClick={() => setMenuOpen(false)}>×</button>}
-    {drawer && <Link href="/" className="drawer-brandmark" onClick={() => setMenuOpen(false)}>
-      <CosFindLogo />
-    </Link>}
-    {drawer && accountLink(true)}
+    {drawer && <div className="drawer-profile-banner">
+      <button type="button" className="mobile-menu-close"
+        aria-label={"\u30e1\u30cb\u30e5\u30fc\u3092\u9589\u3058\u308b"}
+        onClick={() => setMenuOpen(false)}>
+        <svg width="26" height="26" viewBox="0 0 24 24"
+          fill="none" aria-hidden="true">
+          <path d="M5 5L19 19M19 5L5 19" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      </button>
+      {session.authenticated ? <Link href="/profile"
+        className="drawer-profile-link" onClick={() => setMenuOpen(false)}>
+        <strong className="drawer-profile-name">
+          {session.username || "\u30e6\u30fc\u30b6\u30fc"}{"\u3055\u3093"}
+        </strong>
+        {session.handle && <span className="drawer-profile-handle">
+          @{session.handle.replace(/^@/, "")}
+        </span>}
+        <span className="drawer-profile-points">
+          <b>{session.points ?? 0}</b><span>pt</span>
+        </span>
+      </Link> : <div className="drawer-profile-guest">
+        <Link href="/" onClick={() => setMenuOpen(false)}
+          className="drawer-profile-home"><CosFindLogo /></Link>
+        <span>{sessionChecked
+          ? "\u30b2\u30b9\u30c8\u3055\u3093"
+          : "\u8aad\u307f\u8fbc\u307f\u4e2d\u2026"}</span>
+      </div>}
+    </div>}
     <div className="drawer-primary-navigation" aria-label="ページメニュー">
       <Link href="/products" onClick={() => setMenuOpen(false)}><span>⌕</span>商品検索</Link>
       <Link href="/brands" onClick={() => setMenuOpen(false)}><span>Aa</span>ブランド検索</Link>
