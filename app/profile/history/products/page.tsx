@@ -1,3 +1,4 @@
 import { Suspense } from "react";
 import { ProfileHistory } from "@/components/profile-history";
-export default function Page() { return <Suspense fallback={<main className="center-page">読み込み中...</main>}><ProfileHistory kind="products" /></Suspense>; }
+import { PageLoading } from "@/components/page-loading";
+export default function Page() { return <Suspense fallback={<PageLoading message="商品申請履歴を読み込んでいます…"/>}><ProfileHistory kind="products" /></Suspense>; }
