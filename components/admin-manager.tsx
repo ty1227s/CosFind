@@ -252,6 +252,7 @@ export function AdminManager() {
     const confirmed=(saved.data as Product|undefined)??row;
     if (!brands.some((brand) => brand.name === row.brand)) setBrands((items) => [{ id: crypto.randomUUID(), name: row.brand, nameKana: "" }, ...items]);
     setProducts((items) => editingProduct?.id ? items.map((p) => p.id === id ? confirmed : p) : [confirmed, ...items]);
+    if (!editingProduct?.id && createdSort === "newest") setPage(1);
     if (approvingRequest?.kind === "product") { if (!(await updateRequestStatus("product", approvingRequest.id, "approved",confirmed))) return; setProductRequests((items) => items.filter((request) => request.id !== approvingRequest.id)); }
     setApprovingRequest(null); setEditingProduct(null);
   }
@@ -266,6 +267,7 @@ export function AdminManager() {
     if (row.chain && !chains.some((chain) => chain.name === row.chain)) setChains((items) => [{ id: crypto.randomUUID(), name: row.chain, storeType: row.type }, ...items]);
     const confirmed = (saved.data as Store | undefined) ?? row;
     setStores((items) => editingStore?.id ? items.map((s) => s.id === id ? confirmed : s) : [confirmed, ...items.filter((s) => s.id !== confirmed.id)]);
+    if (!editingStore?.id && createdSort === "newest") setPage(1);
     if (approvingRequest?.kind === "store") { if (!(await updateRequestStatus("store", approvingRequest.id, "approved"))) return; setStoreRequests((items) => items.filter((request) => request.id !== approvingRequest.id)); }
     setApprovingRequest(null); setEditingStore(null);
   }
