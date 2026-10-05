@@ -5,6 +5,7 @@ import type {loadPage} from "@/lib/server/mobile-pages/line";
 type Model = Awaited<ReturnType<typeof loadPage>>;
 export function LineView({model}:{model:Model}){
 const {lineName,line,jsonLd}=model;
+const stationMarkerColor=line.lineColor||"#c32673";
 return <><SiteHeader/><main className="area-directory-page">
     <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,"\\u003c")}}/>
     <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><Link href="/lines">路線から探す</Link><span>›</span><span>{lineName}</span></nav>
@@ -15,7 +16,7 @@ return <><SiteHeader/><main className="area-directory-page">
       <dl><div><dt>登録駅</dt><dd>{line.stations.length}<small>駅</small></dd></div></dl>
     </header>
     <section className="area-municipality-section" aria-labelledby="line-station-heading"><h2 id="line-station-heading">登録駅</h2>
-      <ol className="railway-station-sequence">{line.stations.map((station,index)=><li key={station.name}><Link href={stationHref(station.name)}><i>{index+1}</i><span><b>{station.name}</b><small>{station.stores.length}件の登録店舗</small></span></Link></li>)}</ol>
+      <ol className="railway-station-sequence">{line.stations.map((station)=><li key={station.name}><Link href={stationHref(station.name)}><i className="railway-station-color-dot" style={{backgroundColor:stationMarkerColor}} aria-hidden="true"/><span><b>{station.name}</b><small>{station.stores.length}件の登録店舗</small></span></Link></li>)}</ol>
     </section>
   </main></>;
 }
