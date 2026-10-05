@@ -16,7 +16,7 @@ return <><SiteHeader/><main className="area-directory-page">
     {directory.length ? <section className="area-prefecture-section" aria-labelledby="prefecture-heading">
       <h2 id="prefecture-heading">都道府県を選択</h2>
       <div className="area-prefecture-grid">{directory.map((prefecture) => <Link href={areaHref(prefecture.name)} key={prefecture.name}>
-        <span><b>{prefecture.name}</b><small>{prefecture.municipalities.length}市区町村</small></span><strong>{prefecture.storeCount}<small>件</small></strong>
+        <span><b>{prefecture.name}</b><small>{prefecture.municipalityCount}市区町村</small></span><strong>{prefecture.storeCount}<small>件</small></strong>
       </Link>)}</div>
     </section> : <div className="area-empty"><b>掲載できる店舗がまだありません</b><p>登録店舗が公開されると、地域別に表示されます。</p></div>}
   </main></>;

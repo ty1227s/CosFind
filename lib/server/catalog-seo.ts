@@ -16,7 +16,7 @@ type ProductSeoRow = {
 };
 type BrandSeoRow = { id: string; name: string; name_kana: string | null };
 type BrandProductRow = { id: string; name: string; category: string; additional_categories: string[] | null };
-type SitemapProductRow = { id: string; brands: { id: string } | { id: string }[] | null };
+type SitemapPage = { products: { id: string }[]; brands: string[] };
 
 export const getProductSeoData = cache(async (id: string) => {
   const db = createSupabaseAdminClient();
@@ -44,24 +44,30 @@ export const getBrandSeoData = cache(async (id: string) => {
   return { brand: brandResult.data as BrandSeoRow, products: (productsResult.data ?? []) as BrandProductRow[], productCount: productsResult.count ?? 0 };
 });
 
-export const getCatalogSitemapEntries = cache(async () => {
+const sitemapCatalogCache = new Map<string, { expiresAt: number; promise: Promise<SitemapPage> }>();
+async function loadCatalogSitemapPage(page: number, pageSize: number, includeBrands: boolean): Promise<SitemapPage> {
   const db = createSupabaseAdminClient();
-  const rows: SitemapProductRow[] = [];
-  const pageSize = 1000;
-  for (let offset = 0; offset < 50000; offset += pageSize) {
-    const result = await db.from("products").select("id,brands(id)").eq("is_active", true).order("id").range(offset, offset + pageSize - 1);
-    if (result.error) throw new Error(`商品サイトマップ情報の取得に失敗しました: ${result.error.message}`);
-    const page = (result.data ?? []) as unknown as SitemapProductRow[];
-    rows.push(...page);
-    if (page.length < pageSize) break;
-  }
-  const brandIds = new Set<string>();
-  for (const row of rows) {
-    const brands = Array.isArray(row.brands) ? row.brands : row.brands ? [row.brands] : [];
-    for (const brand of brands) brandIds.add(brand.id);
-  }
+  const offset = page * pageSize;
+  const [productsResult, brandsResult] = await Promise.all([
+    db.from("products").select("id").eq("is_active", true).order("id").range(offset, offset + pageSize - 1),
+    includeBrands ? db.from("brands").select("id").order("id") : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (productsResult.error) throw new Error(`商品サイトマップ情報の取得に失敗しました: ${productsResult.error.message}`);
+  if (brandsResult.error) throw new Error(`ブランドサイトマップ情報の取得に失敗しました: ${brandsResult.error.message}`);
   return {
-    products: rows.map((row) => ({ id: row.id })),
-    brands: [...brandIds],
+    products: (productsResult.data ?? []).map((row) => ({ id: row.id })),
+    brands: (brandsResult.data ?? []).map((row) => row.id),
   };
+}
+export const getCatalogSitemapPage = cache(async (page: number, pageSize: number, includeBrands = false) => {
+  const key = `${page}:${pageSize}:${includeBrands ? 1 : 0}`;
+  const now = Date.now();
+  const cached = sitemapCatalogCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.promise;
+  const promise = loadCatalogSitemapPage(page, pageSize, includeBrands).catch((error) => {
+    if (sitemapCatalogCache.get(key)?.promise === promise) sitemapCatalogCache.delete(key);
+    throw error;
+  });
+  sitemapCatalogCache.set(key, { expiresAt: now + 300_000, promise });
+  return promise;
 });

@@ -9,4 +9,5 @@ export const metadata: Metadata = {
 };
 import {loadPage} from "@/lib/server/mobile-pages/stations";
 import {StationsView} from "@/components/pages/stations";
-export default async function StationsPage(){return <StationsView model={await loadPage()} />;}
+type PageProps={searchParams:Promise<{page?:string}>};
+export default async function StationsPage({searchParams}:PageProps){return <StationsView model={await loadPage({searchParams})} />;}

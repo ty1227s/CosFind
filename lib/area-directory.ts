@@ -32,20 +32,36 @@ export type AreaStore = {
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
 export type StationDirectory = { name: string; prefecture: string; municipality: string; lineNames: string[]; stores: AreaStore[] };
-export type RailwayLineDirectory = { name: string; companies: string[]; visualType: "image" | "color"; imageUrl: string; lineColor: string; stations: StationDirectory[]; stores: AreaStore[] };
+export type RailwayLineDirectory = { name: string; companies: string[]; visualType: "image" | "color"; imageUrl: string; lineColor: string; stations: StationDirectory[] };
 export type RailwayCompanyDirectory = { name: string; regions: string[]; lineCount: number };
 
 const municipalities = municipalitySource as MunicipalitySource;
 const prefectureOrder = Object.keys(municipalities);
 type MetadataRow = { payload: unknown; created_at: string };
-const getDirectoryMetadataRows = cache(async (): Promise<MetadataRow[]> => {
+const DIRECTORY_CACHE_TTL_MS = 30_000;
+function timedCache<T>(loader: () => Promise<T>) {
+  let cached: { expiresAt: number; promise: Promise<T> } | undefined;
+  return () => {
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) return cached.promise;
+    const promise = loader().catch((error) => {
+      if (cached?.promise === promise) cached = undefined;
+      throw error;
+    });
+    cached = { expiresAt: now + DIRECTORY_CACHE_TTL_MS, promise };
+    return promise;
+  };
+}
+const loadDirectoryMetadataRows = timedCache(async (): Promise<MetadataRow[]> => {
   const db = createSupabaseAdminClient();
   try {
     return await readLatestCatalogMetadata(db, ["store_provisional_brands", "station_directory", "railway_line_directory", "railway_company_directory"]);
   } catch (error) {
-    throw new Error(`地域・駅・路線情報の取得に失敗しました: ${error instanceof Error ? error.message : "不明なエラー"}`);
+    const message = error instanceof Error ? error.message : error && typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : "不明なエラー";
+    throw new Error(`地域・駅・路線情報の取得に失敗しました: ${message}`);
   }
 });
+const getDirectoryMetadataRows = cache(loadDirectoryMetadataRows);
 const municipalityCandidates = Object.fromEntries(
   Object.entries(municipalities).map(([prefecture, values]) => [
     prefecture,
@@ -62,7 +78,7 @@ function identifyArea(address: string) {
   return municipality ? { prefecture, municipality } : null;
 }
 
-export const getAreaDirectory = cache(async (): Promise<PrefectureDirectory[]> => {
+const loadAreaDirectory = timedCache(async (): Promise<PrefectureDirectory[]> => {
   const db = createSupabaseAdminClient();
   const storeQuery = operatingPeriodQuery(
     db
@@ -127,6 +143,7 @@ export const getAreaDirectory = cache(async (): Promise<PrefectureDirectory[]> =
     }];
   });
 });
+export const getAreaDirectory = cache(loadAreaDirectory);
 
 export function findPrefecture(directory: PrefectureDirectory[], name: string) {
   return directory.find((item) => item.name === name);
@@ -136,7 +153,7 @@ export function findMunicipality(prefecture: PrefectureDirectory, name: string) 
   return prefecture.municipalities.find((item) => item.name === name);
 }
 
-export const getStationDirectory = cache(async (): Promise<StationDirectory[]> => {
+const loadStationDirectory = timedCache(async (): Promise<StationDirectory[]> => {
   const [areaDirectory, metadataRows] = await Promise.all([
     getAreaDirectory(),
     getDirectoryMetadataRows(),
@@ -171,8 +188,9 @@ export const getStationDirectory = cache(async (): Promise<StationDirectory[]> =
     .map((name) => ({ name, prefecture: stationLines.get(name)?.prefecture ?? "", municipality: stationLines.get(name)?.municipality ?? "", lineNames: stationLines.get(name)?.lineNames ?? [], stores: [...(stationStores.get(name)?.values() ?? [])].sort((left, right) => left.name.localeCompare(right.name, "ja")) }))
     .sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
+export const getStationDirectory = cache(loadStationDirectory);
 
-export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirectory[]> => {
+const loadRailwayLineDirectory = timedCache(async (): Promise<RailwayLineDirectory[]> => {
   const stationsPromise = getStationDirectory();
   const [stations, metadataRows]=await Promise.all([stationsPromise,getDirectoryMetadataRows()]);
   const configuredLines = new Map<string, { companies:string[]; stationNames: string[]; visualType:"image"|"color"; imageUrl:string; lineColor:string; isActive: boolean }>();
@@ -192,22 +210,28 @@ export const getRailwayLineDirectory = cache(async (): Promise<RailwayLineDirect
   const inferredNames = new Set(stations.flatMap((station) => station.lineNames));
   const names = new Set([...configuredLines.entries()].filter(([, value]) => value.isActive).map(([name]) => name));
   for (const name of inferredNames) names.add(name);
+  const membersByLine = new Map<string, StationDirectory[]>();
+  for (const station of stations) for (const lineName of station.lineNames) {
+    const members = membersByLine.get(lineName) ?? [];
+    members.push(station);
+    membersByLine.set(lineName, members);
+  }
   return [...names].map((name) => {
-    const members = stations.filter((station) => station.lineNames.includes(name));
+    const members = [...(membersByLine.get(name) ?? [])];
     const preferredOrder = configuredLines.get(name)?.stationNames ?? [];
+    const preferredIndexes = new Map(preferredOrder.map((stationName, index) => [stationName, index]));
     members.sort((left, right) => {
-      const leftIndex = preferredOrder.indexOf(left.name); const rightIndex = preferredOrder.indexOf(right.name);
-      if (leftIndex >= 0 && rightIndex >= 0) return leftIndex - rightIndex;
-      if (leftIndex >= 0) return -1; if (rightIndex >= 0) return 1;
+      const leftIndex = preferredIndexes.get(left.name); const rightIndex = preferredIndexes.get(right.name);
+      if (leftIndex !== undefined && rightIndex !== undefined) return leftIndex - rightIndex;
+      if (leftIndex !== undefined) return -1; if (rightIndex !== undefined) return 1;
       return left.name.localeCompare(right.name, "ja");
     });
-    const stores = new Map<string, AreaStore>();
-    for (const station of members) for (const store of station.stores) stores.set(store.id, store);
-    return { name, companies:configuredLines.get(name)?.companies??[], visualType:configuredLines.get(name)?.visualType??"color", imageUrl:configuredLines.get(name)?.imageUrl??"", lineColor:configuredLines.get(name)?.lineColor??"", stations: members, stores: [...stores.values()] };
+    return { name, companies:configuredLines.get(name)?.companies??[], visualType:configuredLines.get(name)?.visualType??"color", imageUrl:configuredLines.get(name)?.imageUrl??"", lineColor:configuredLines.get(name)?.lineColor??"", stations: members };
   }).sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
+export const getRailwayLineDirectory = cache(loadRailwayLineDirectory);
 
-export const getRailwayCompanyDirectory = cache(async (): Promise<RailwayCompanyDirectory[]> => {
+const loadRailwayCompanyDirectory = timedCache(async (): Promise<RailwayCompanyDirectory[]> => {
   const [lines, metadataRows] = await Promise.all([getRailwayLineDirectory(), getDirectoryMetadataRows()]);
   const configured = new Map<string, { regions: string[]; isActive: boolean }>();
   for (const row of metadataRows) {
@@ -220,10 +244,54 @@ export const getRailwayCompanyDirectory = cache(async (): Promise<RailwayCompany
   }
   const names = new Set(lines.flatMap((line) => line.companies));
   for (const [name, metadata] of configured) if (metadata.isActive) names.add(name);
+  const lineCounts = new Map<string, number>();
+  for (const line of lines) for (const company of line.companies) lineCounts.set(company, (lineCounts.get(company) ?? 0) + 1);
   return [...names]
     .filter((name) => configured.get(name)?.isActive !== false)
-    .map((name) => ({ name, regions: configured.get(name)?.regions ?? [], lineCount: lines.filter((line) => line.companies.includes(name)).length }))
+    .map((name) => ({ name, regions: configured.get(name)?.regions ?? [], lineCount: lineCounts.get(name) ?? 0 }))
     .sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
+export const getRailwayCompanyDirectory = cache(loadRailwayCompanyDirectory);
+
+const loadDirectorySitemapEntries = timedCache(async () => {
+  const db = createSupabaseAdminClient();
+  const storeQuery = operatingPeriodQuery(db.from("stores").select("id,address").eq("is_active", true));
+  const [storeResult, metadataRows] = await Promise.all([storeQuery, getDirectoryMetadataRows()]);
+  if (storeResult.error) throw new Error(`サイトマップ用店舗情報の取得に失敗しました: ${storeResult.error.message}`);
+
+  const areaKeys = new Set<string>();
+  const storeIds: string[] = [];
+  for (const store of storeResult.data ?? []) {
+    storeIds.push(store.id);
+    const area = identifyArea(store.address || "");
+    if (area) areaKeys.add(`${area.prefecture}\u0000${area.municipality}`);
+  }
+
+  const stationStates = new Map<string, { active: boolean; lineNames: string[] }>();
+  const stationsFromStores = new Set<string>();
+  const lineStates = new Map<string, boolean>();
+  for (const row of metadataRows) {
+    const payload = row.payload as MetadataPayload | null;
+    if (payload?.metadataType === "station_directory" && typeof payload.stationName === "string") {
+      stationStates.set(payload.stationName, { active: payload.isActive !== false, lineNames: Array.isArray(payload.lineNames) ? payload.lineNames.filter((name): name is string => typeof name === "string") : [] });
+    } else if (payload?.metadataType === "railway_line_directory" && typeof payload.lineName === "string") {
+      lineStates.set(payload.lineName, payload.isActive !== false);
+    } else if (typeof payload?.storeId === "string" && Array.isArray(payload.stationNames)) {
+      for (const name of payload.stationNames) if (typeof name === "string" && name) stationsFromStores.add(name);
+    }
+  }
+  const stationNames = new Set([...stationStates].filter(([, state]) => state.active).map(([name]) => name));
+  for (const name of stationsFromStores) if (stationStates.get(name)?.active !== false) stationNames.add(name);
+  const lineNames = new Set([...lineStates].filter(([, active]) => active).map(([name]) => name));
+  for (const [stationName, state] of stationStates) if (state.active && stationNames.has(stationName)) for (const lineName of state.lineNames) lineNames.add(lineName);
+
+  return {
+    areas: [...areaKeys].map((key) => { const [prefecture, municipality] = key.split("\u0000"); return { prefecture, municipality }; }),
+    storeIds,
+    stationNames: [...stationNames],
+    lineNames: [...lineNames],
+  };
+});
+export const getDirectorySitemapEntries = cache(loadDirectorySitemapEntries);
 
 export { areaHref, stationHref, railwayLineHref, decodeAreaSegment, publicSiteOrigin } from "./area-links";

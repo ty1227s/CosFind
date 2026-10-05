@@ -708,3 +708,5 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
 #mobile-header-menu .drawer-profile-banner button:focus-visible {
   outline-color: #fff;
 }
+
+.directory-pagination{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-top:22px}.directory-pagination a{justify-self:start;border:1px solid #decbd5;border-radius:10px;background:#fff;padding:9px 14px;color:#87365e;font-size:12px;font-weight:700;text-decoration:none}.directory-pagination a:last-child{justify-self:end}.directory-pagination b{font-size:12px;color:var(--muted)}

@@ -16,7 +16,7 @@ return <><SiteHeader/><main className="area-directory-page">
     <section className="area-municipality-section" aria-labelledby="municipality-heading">
       <h2 id="municipality-heading">市区町村を選択</h2>
       <div className="area-municipality-grid">{prefecture.municipalities.map((municipality) => <Link href={areaHref(prefecture.name, municipality.name)} key={municipality.name}>
-        <b>{municipality.name}</b><span>{municipality.stores.length}<small>件</small></span>
+        <b>{municipality.name}</b><span>{municipality.storeCount}<small>件</small></span>
       </Link>)}</div>
     </section>
   </main></>;

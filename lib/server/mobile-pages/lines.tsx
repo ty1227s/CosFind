@@ -11,7 +11,8 @@ const UNASSIGNED_COMPANY = "__unassigned__";
 
 
 export async function loadPage({ searchParams }: PageProps) {
-  const [lines, companyDirectory, params] = await Promise.all([getRailwayLineDirectory(), getRailwayCompanyDirectory(), searchParams]);
+  const [sourceLines, companyDirectory, params] = await Promise.all([getRailwayLineDirectory(), getRailwayCompanyDirectory(), searchParams]);
+  const lines = sourceLines.map((line) => ({ name: line.name, companies: line.companies, visualType: line.visualType, imageUrl: line.imageUrl, lineColor: line.lineColor, stationCount: line.stations.length, stationNames: line.stations.map((station) => station.name) }));
   const requestedRegion = params.region?.trim() ?? "";
   const requestedCompany = params.company?.trim() ?? "";
   const unassignedCompanies = companyDirectory.filter((company) => company.regions.length === 0);
@@ -23,7 +24,7 @@ export async function loadPage({ searchParams }: PageProps) {
   const visibleLines = selectedCompany === UNASSIGNED_COMPANY ? unassignedLines : selectedCompany ? lines.filter((line) => line.companies.includes(selectedCompany)) : [];
   const selectedCompanyLabel = selectedCompany === UNASSIGNED_COMPANY ? "鉄道会社未登録" : selectedCompany;
   const selectedRegionLabel = selectedRegion === UNASSIGNED_REGION ? "地域未登録" : selectedRegion;
-  const stationCount = new Set(lines.flatMap((line) => line.stations.map((station) => station.name))).size;
+  const stationCount = new Set(lines.flatMap((line) => line.stationNames)).size;
   
   return {
     lines, companyDirectory, unassignedCompanies,

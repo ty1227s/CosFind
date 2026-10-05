@@ -19,5 +19,5 @@ export async function loadPage({ params }: PageProps){
     ]},
     { "@type":"ItemList", name:`${lineName}の登録駅`, numberOfItems:line.stations.length, itemListElement:line.stations.map((station,index)=>({"@type":"ListItem",position:index+1,name:station.name,url:`${publicSiteOrigin}${stationHref(station.name)}`})) },
   ]};
-  return {lineName,line,jsonLd};
+  return {lineName,line:{name:line.name,companies:line.companies,visualType:line.visualType,imageUrl:line.imageUrl,lineColor:line.lineColor,stations:line.stations.map((station)=>({name:station.name,storeCount:station.stores.length}))},jsonLd};
 }
