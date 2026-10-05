@@ -3,14 +3,14 @@ import {notFound} from "next/navigation";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {type ProductMapStore} from "@/components/product-detail-map";
 import {operatingPeriodQuery} from "@/lib/store-operating-period";
-type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; spf:number|null; pa:string|null; brands: { id:string;name: string } | { id:string;name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
+type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null; spf:number|null; pa:string|null; brands: { id:string;name: string } | { id:string;name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
 type ReportRow = { store_id: string; reported_at: string; stores: { id: string; name: string; chain_name: string | null; address: string } | null };
 type StoreRow = { id:string;name:string;chain_name:string|null;address:string;latitude:number;longitude:number;opening_date:string|null;closing_date:string|null };
 type StoreMetadataRow = { payload: { storeId?:unknown; customName?:unknown } };
 type MapReportRow = { store_id:string;status:"available"|"low_stock"|"sold_out"|"unknown"|"discontinued";reported_at:string };
 export async function loadPage({ params }: { params: Promise<{ id: string }> }){
   const { id } = await params; const db = createSupabaseAdminClient();
-  const productResult = await db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,spf,pa,brands(id,name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("id", id).eq("is_active", true).order("created_at", { referencedTable: "product_variants" }).maybeSingle();
+  const productResult = await db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,brands(id,name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("id", id).eq("is_active", true).order("created_at", { referencedTable: "product_variants" }).maybeSingle();
   if (productResult.error || !productResult.data) notFound();
   const product = productResult.data as unknown as ProductRow; const brand = Array.isArray(product.brands) ? product.brands[0] ?? null : product.brands;
   const [reportsResult, allStoresResult, mapReportsResult, metadataResult] = await Promise.all([
