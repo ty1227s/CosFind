@@ -25,7 +25,7 @@ return <><SiteHeader/><main className="area-directory-page">
         const displayName = formatStoreName(store); const color = getStoreTypeColor(store.type);
         return <Link className="area-store-card" href={`/stores/${encodeURIComponent(store.id)}`} key={store.id} aria-label={`${displayName}の詳細を見る`}>
           <div className="area-store-code" style={{ backgroundColor: color.background, color: color.foreground }}>{getStoreTypeCode(store.type)}</div>
-          <div><p>{store.type}</p><h2>{displayName}</h2><address>{store.address}</address><div className="station-tags compact">{store.stationNames.map(name=><span className={name===stationName?"active":""} key={name}>{name}</span>)}</div></div>
+          <div><p>{store.type}</p><h2>{displayName}</h2><address>{store.address}</address></div>
         </Link>;
       })}</div>
     </section>
