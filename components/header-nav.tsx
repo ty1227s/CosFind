@@ -122,6 +122,11 @@ export function HeaderNav() {
           : "\u8aad\u307f\u8fbc\u307f\u4e2d\u2026"}</span>
       </div>}
     </div>}
+    {session.authenticated && <>
+      <Link href="/report" className="report-link" onClick={() => setMenuOpen(false)}>✦ 在庫を報告</Link>
+      <Link href="/requests/product" className="request-link" onClick={() => setMenuOpen(false)}>商品申請</Link>
+      <Link href="/requests/store" className="request-link" onClick={() => setMenuOpen(false)}>店舗申請</Link>
+    </>}
     <div className="drawer-primary-navigation" aria-label="ページメニュー">
       <Link href="/products" onClick={() => setMenuOpen(false)}><span>⌕</span>商品検索</Link>
       <Link href="/brands" onClick={() => setMenuOpen(false)}><span>Aa</span>ブランド検索</Link>
@@ -136,11 +141,6 @@ export function HeaderNav() {
     </div>
     {drawer && <PwaInstallButton />}
     {session.authenticated && session.isAdmin && <Link href="/admin" className="report-link admin-link" onClick={() => setMenuOpen(false)}>⚙ 管理画面へ</Link>}
-    {session.authenticated && <>
-      <Link href="/report" className="report-link" onClick={() => setMenuOpen(false)}>✦ 在庫を報告</Link>
-      <Link href="/requests/product" className="request-link" onClick={() => setMenuOpen(false)}>商品申請</Link>
-      <Link href="/requests/store" className="request-link" onClick={() => setMenuOpen(false)}>店舗申請</Link>
-    </>}
     {session.authenticated && <>
       {!drawer && accountLink()}
       <form action="/api/auth/logout" method="post" className="header-logout"><button type="submit">ログアウト</button></form>
