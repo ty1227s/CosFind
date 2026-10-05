@@ -136,6 +136,7 @@ export function HeaderNav() {
       <Link href="/lines" onClick={() => setMenuOpen(false)}><span>線</span>路線から探す</Link>
       <Link href="/products/new" onClick={() => setMenuOpen(false)}><span>✦</span>新作コスメ情報</Link>
       <Link href="/announcements" onClick={() => setMenuOpen(false)}><span>i</span>お知らせ</Link>
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSdDOCL9VO_5t98b4fJftDz4dgXXKWj903wcX4aUtZB9jOPG1w/viewform?usp=header" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}><span>?</span>お問い合わせ</a>
       <a href="https://x.com/CosFindApp" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}><span>𝕏</span>X（@CosFindApp）</a>
       <a href="https://www.instagram.com/cosfindapp/" target="_blank" rel="noopener noreferrer" onClick={() => setMenuOpen(false)}><span>IG</span>Instagram（@cosfindapp）</a>
     </div>
