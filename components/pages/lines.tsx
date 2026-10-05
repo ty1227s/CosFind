@@ -13,7 +13,7 @@ export function LinesView({ model }: { model: Model }) {
     lines, companyDirectory, unassignedCompanies,
     selectedRegion, companiesInRegion, unassignedLines,
     selectedCompany, visibleLines, selectedCompanyLabel,
-    selectedRegionLabel, stationCount
+    selectedRegionLabel
   } = model;
   return <><SiteHeader/><main className="area-directory-page">
     <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><span>路線から探す</span></nav>
@@ -21,7 +21,6 @@ export function LinesView({ model }: { model: Model }) {
       <p className="eyebrow">RAILWAY LINE DIRECTORY</p>
       <h1>路線からコスメ取扱店舗を探す</h1>
       <p>地域、鉄道会社、路線の順に選ぶと、登録順に並んだ駅と、沿線のコスメ・スキンケア取扱店舗を確認できます。</p>
-      <dl><div><dt>登録路線</dt><dd>{lines.length}<small>路線</small></dd></div><div><dt>登録駅</dt><dd>{stationCount}<small>駅</small></dd></div></dl>
     </header>
     {lines.length ? selectedCompany ? <section className="area-municipality-section" aria-labelledby="line-heading">
       <div className="area-section-heading"><div><p className="directory-step-label">地域：{selectedRegionLabel || "指定なし"}</p><h2 id="line-heading">{selectedCompanyLabel}の路線</h2><p>路線を選ぶと登録駅を確認できます。</p></div><Link href={selectedRegion ? `/lines?region=${encodeURIComponent(selectedRegion)}` : "/lines"}>← 鉄道会社一覧へ戻る</Link></div>
