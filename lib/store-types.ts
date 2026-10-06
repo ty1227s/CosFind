@@ -1,8 +1,7 @@
 export const STORE_TYPES = [
   "ドラッグストア",
   "ホームセンター",
-  "バラエティショップ（総合）",
-  "バラエティショップ（女性向け）",
+  "バラエティショップ",
   "総合スーパー",
   "スーパー",
   "家電量販店",
@@ -11,5 +10,5 @@ export const STORE_TYPES = [
 ] as const;
 
 export function normalizeStoreType(type: string) {
-  return type === "バラエティショップ" ? "バラエティショップ（総合）" : type;
+  return type === "バラエティショップ（総合）" || type === "バラエティショップ（女性向け）" ? "バラエティショップ" : type;
 }

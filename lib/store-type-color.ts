@@ -1,9 +1,8 @@
 export type StoreTypeColor = { background: string; foreground: string };
-export const STORE_TYPE_LEGEND = ["バラエティショップ（女性向け）", "バラエティショップ（総合）", "ドラッグストア", "ホームセンター", "総合スーパー", "スーパー", "家電量販店", "ディスカウントストア", "その他"] as const;
+export const STORE_TYPE_LEGEND = ["バラエティショップ", "ドラッグストア", "ホームセンター", "総合スーパー", "スーパー", "家電量販店", "ディスカウントストア", "その他"] as const;
 
 export function getStoreTypeColor(type: string): StoreTypeColor {
-  if (type === "バラエティショップ（女性向け）") return { background: "#e83e8c", foreground: "#ffffff" };
-  if (type === "バラエティショップ（総合）" || type === "バラエティショップ") return { background: "#f2c94c", foreground: "#332800" };
+  if (type === "バラエティショップ（総合）" || type === "バラエティショップ（女性向け）" || type === "バラエティショップ") return { background: "#f2c94c", foreground: "#332800" };
   if (type === "ドラッグストア") return { background: "#239b62", foreground: "#ffffff" };
   if (type === "ホームセンター") return { background: "#2878d0", foreground: "#ffffff" };
   if (type === "総合スーパー") return { background: "#8250b5", foreground: "#ffffff" };
