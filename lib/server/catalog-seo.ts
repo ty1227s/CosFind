@@ -45,6 +45,23 @@ export const getBrandSeoData = cache(async (id: string) => {
 });
 
 const sitemapCatalogCache = new Map<string, { expiresAt: number; promise: Promise<SitemapPage> }>();
+let sitemapProductCountCache: { expiresAt: number; promise: Promise<number> } | null = null;
+
+export async function getActiveProductCount() {
+  const now = Date.now();
+  if (sitemapProductCountCache && sitemapProductCountCache.expiresAt > now) return sitemapProductCountCache.promise;
+  const promise = (async () => {
+    const result = await createSupabaseAdminClient().from("products").select("id", { count: "exact", head: true }).eq("is_active", true);
+    if (result.error) throw new Error(`商品サイトマップ件数の取得に失敗しました: ${result.error.message}`);
+    return result.count ?? 0;
+  })().catch((error: unknown) => {
+    if (sitemapProductCountCache?.promise === promise) sitemapProductCountCache = null;
+    throw error;
+  });
+  sitemapProductCountCache = { expiresAt: now + 300_000, promise };
+  return promise;
+}
+
 async function loadCatalogSitemapPage(page: number, pageSize: number, includeBrands: boolean): Promise<SitemapPage> {
   const db = createSupabaseAdminClient();
   const offset = page * pageSize;
