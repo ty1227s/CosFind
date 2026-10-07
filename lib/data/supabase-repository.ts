@@ -16,8 +16,9 @@ export const supabaseRepository:CatalogRepository={
   type StoreRow={id:string;name:string;chain_name:string|null;store_type:string;address:string;latitude:number;longitude:number;created_at:string;opening_date:string|null;closing_date:string|null};
   type ReportRow={store_id:string;last_reported_at:string;report_count:number|null};
   const[reportResponse,storeResponse]=await Promise.all([fetch("/api/public/map-reports",{cache:"no-store"}),fetch("/api/public/map-stores",{cache:"no-store"})]);
-  if(!reportResponse.ok||!storeResponse.ok)throw new Error("店舗情報を取得できませんでした");
-  const[reports,storeRows]=await Promise.all([reportResponse.json() as Promise<ReportRow[]>,storeResponse.json() as Promise<StoreRow[]>]);
+  if(!storeResponse.ok)throw new Error("店舗情報を取得できませんでした");
+  const storeRows=await storeResponse.json() as StoreRow[];
+  const reports=reportResponse.ok?await reportResponse.json() as ReportRow[]:[];
   const reportByStore=new Map<string,{lastReportedAt:string;reportCount:number}>();
   for(const report of reports){const current=reportByStore.get(report.store_id);const lastReportedAt=current&&current.lastReportedAt>report.last_reported_at?current.lastReportedAt:report.last_reported_at;reportByStore.set(report.store_id,{lastReportedAt,reportCount:(current?.reportCount??0)+Number(report.report_count??0)})}
   const metadataResponse=await fetch(`/api/store-metadata?ids=${encodeURIComponent(storeRows.map(store=>store.id).join(","))}`);

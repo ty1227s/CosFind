@@ -127,8 +127,12 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     markersRef.current.forEach((marker) => marker.remove()); markersRef.current = [];
-    if (visibleStoreIds.length > 100) return;
-    const visibleSet = new Set(visibleStoreIds);
+    const currentBounds = mapRef.current.getBounds();
+    const markerStoreIds = visibleStoreIds.length > 0
+      ? visibleStoreIds
+      : stores.filter((store) => currentBounds.contains([store.longitude, store.latitude])).map((store) => store.id);
+    if (markerStoreIds.length > 100) return;
+    const visibleSet = new Set(markerStoreIds);
     const storesWithPins = stores.filter((store) => visibleSet.has(store.id));
     void import("maplibre-gl").then((maplibre) => { if (!mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const storeName = formatStoreName(store); element.type = "button"; element.dataset.storeId = store.id; element.className = "map-pin"; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.setAttribute("aria-label", `${storeName}、${store.type}`); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => { onSelectRef.current(store.id); if (!isMobileMapDevice()) return; if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); centerTimerRef.current = window.setTimeout(() => { const map = mapRef.current; const mapElement = container.current; if (!map || !mapElement) return; const popup = mapElement.parentElement?.querySelector<HTMLElement>(".map-card"); const mapRect = mapElement.getBoundingClientRect(); const popupRect = popup?.getBoundingClientRect(); const coveredHeight = popupRect ? Math.max(0, mapRect.bottom - popupRect.top) : 0; const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; map.stop(); map.resize(); map.flyTo({ center: [store.longitude, store.latitude], offset: [0, -coveredHeight / 2], zoom: map.getZoom(), duration: reduceMotion ? 0 : 700, essential: true }); }, 260); }; return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
   }, [mapReady, stores, visibleStoreIds]);
@@ -136,6 +140,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
   useEffect(() => {
     const map = mapRef.current;
     if (!mapReady || !map) return;
+    const refreshTimers: number[] = [];
     const updateVisibleStoreCount = () => {
       if (!map.getContainer().clientWidth || !map.getContainer().clientHeight) return;
       const bounds = map.getBounds();
@@ -149,7 +154,14 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     map.on("zoomend", updateVisibleStoreCount);
     map.on("resize", updateVisibleStoreCount);
     map.once("idle", updateVisibleStoreCount);
+    const refreshAfterLayout = () => { map.resize(); updateVisibleStoreCount(); };
+    refreshTimers.push(window.setTimeout(refreshAfterLayout, 150), window.setTimeout(refreshAfterLayout, 700), window.setTimeout(refreshAfterLayout, 1800));
+    window.visualViewport?.addEventListener("resize", refreshAfterLayout);
+    window.visualViewport?.addEventListener("scroll", refreshAfterLayout);
     return () => {
+      refreshTimers.forEach((timer) => window.clearTimeout(timer));
+      window.visualViewport?.removeEventListener("resize", refreshAfterLayout);
+      window.visualViewport?.removeEventListener("scroll", refreshAfterLayout);
       map.off("moveend", updateVisibleStoreCount);
       map.off("zoomend", updateVisibleStoreCount);
       map.off("resize", updateVisibleStoreCount);
