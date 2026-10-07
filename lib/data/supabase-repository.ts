@@ -6,11 +6,16 @@ import {operatingPeriodQuery} from "@/lib/store-operating-period";
 type StoreMetadata={stores?:Record<string,{businessHours?:StoreResult["businessHours"];customName?:boolean;stationNames?:string[]}>};
 
 async function loadStoreMetadata(ids:string[]):Promise<StoreMetadata>{
- try{
-  const response=await fetch("/api/store-metadata",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids}),cache:"no-store"});
-  if(!response.ok)return{stores:{}};
-  return await response.json() as StoreMetadata;
- }catch{return{stores:{}}}
+ const chunks:string[][]=[];
+ for(let index=0;index<ids.length;index+=100)chunks.push(ids.slice(index,index+100));
+ const responses=await Promise.all(chunks.map(async chunk=>{
+  try{
+   const response=await fetch("/api/store-metadata",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids:chunk}),cache:"no-store"});
+   if(!response.ok)return{};
+   return (await response.json() as StoreMetadata).stores??{};
+  }catch{return{}}
+ }));
+ return{stores:Object.assign({},...responses)};
 }
 
 export const supabaseRepository:CatalogRepository={
