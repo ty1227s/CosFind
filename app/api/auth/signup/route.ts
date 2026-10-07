@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { clientAddress, consumeRateLimit, isSameOrigin, isSupabaseMode } from "@/lib/server/security";
+import { isStrongPassword } from "@/lib/password-policy";
 
 function redirect(request: Request, error: string) {
   return NextResponse.redirect(new URL(`/login?mode=signup&error=${encodeURIComponent(error)}`, request.url), 303);
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   const confirmation = String(form.get("passwordConfirmation") ?? "");
   if (!/^[a-z0-9_]{3,24}$/.test(username)) return redirect(request, "username");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return redirect(request, "email");
-  if (password.length < 8 || password.length > 128) return redirect(request, "password_length");
+  if (!isStrongPassword(password)) return redirect(request, "password_complexity");
   if (password !== confirmation) return redirect(request, "password_match");
   if (!isSupabaseMode()) return redirect(request, "config");
 

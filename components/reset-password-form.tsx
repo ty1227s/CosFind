@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { SiteHeader } from "./site-header";
+import { isStrongPassword, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS } from "@/lib/password-policy";
 
 type Phase = "checking" | "ready" | "saving" | "invalid" | "error";
 
@@ -57,8 +58,8 @@ export function ResetPasswordForm() {
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
     const confirmation = String(form.get("passwordConfirmation") ?? "");
-    if (password.length < 8 || password.length > 128) {
-      setMessage("パスワードは8～128文字で入力してください。");
+    if (!isStrongPassword(password)) {
+      setMessage(`パスワードは${PASSWORD_REQUIREMENTS}。`);
       return;
     }
     if (password !== confirmation) {
@@ -88,9 +89,9 @@ export function ResetPasswordForm() {
         {phase === "invalid" && <div className="reset-state"><h2>リンクを確認できませんでした</h2><p>リンクの有効期限が切れているか、すでに使用されています。再設定メールをもう一度送信してください。</p><Link className="auth-secondary-link" href="/forgot-password">再設定メールを送信</Link></div>}
         {phase === "error" && <div className="reset-state"><p>{message}</p><Link className="auth-secondary-link" href="/login">ログイン画面へ戻る</Link></div>}
         {(phase === "ready" || phase === "saving") && <form onSubmit={(event) => void submit(event)}>
-          <p>8文字以上の新しいパスワードを入力してください。</p>
-          <label className="field"><span>新しいパスワード</span><input name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required /></label>
-          <label className="field"><span>新しいパスワード（確認）</span><input name="passwordConfirmation" type="password" autoComplete="new-password" minLength={8} maxLength={128} required /></label>
+          <p>{PASSWORD_REQUIREMENTS}。</p>
+          <label className="field"><span>新しいパスワード</span><input name="password" type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{12,128}" required /></label>
+          <label className="field"><span>新しいパスワード（確認）</span><input name="passwordConfirmation" type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{12,128}" required /></label>
           {message && <p className="form-error">{message}</p>}
           <button className="submit" type="submit" disabled={phase === "saving"}>{phase === "saving" ? "更新しています…" : "パスワードを更新"}</button>
         </form>}

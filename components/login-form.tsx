@@ -4,11 +4,12 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
 import { SiteHeader } from "./site-header";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_REQUIREMENTS } from "@/lib/password-policy";
 
 const signupErrors: Record<string, string> = {
   username: "ユーザー名は半角英小文字・数字・アンダースコアの3～24文字で入力してください。",
   email: "正しいメールアドレスを入力してください。",
-  password_length: "パスワードは8文字以上で入力してください。",
+  password_complexity: `パスワードは${PASSWORD_REQUIREMENTS}。`,
   password_match: "確認用パスワードが一致しません。",
   username_taken: "そのユーザー名はすでに使用されています。",
   email_taken: "そのメールアドレスはすでに登録されています。",
@@ -40,8 +41,8 @@ export function LoginForm() {
           <form action="/api/auth/signup" method="post">
             <label className="field"><span>ユーザー名</span><input name="username" autoComplete="username" minLength={3} maxLength={24} pattern="[a-z0-9_]+" required placeholder="cosme_user" /><small>半角英小文字・数字・_ の3～24文字</small></label>
             <label className="field"><span>メールアドレス</span><input name="email" type="email" autoComplete="email" required /></label>
-            <label className="field"><span>パスワード</span><input name="password" type="password" autoComplete="new-password" minLength={8} required /><small>8文字以上</small></label>
-            <label className="field"><span>パスワード（確認）</span><input name="passwordConfirmation" type="password" autoComplete="new-password" minLength={8} required /></label>
+            <label className="field"><span>パスワード</span><input name="password" type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{12,128}" required /><small>{PASSWORD_REQUIREMENTS}</small></label>
+            <label className="field"><span>パスワード（確認）</span><input name="passwordConfirmation" type="password" autoComplete="new-password" minLength={PASSWORD_MIN_LENGTH} maxLength={PASSWORD_MAX_LENGTH} pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{12,128}" required /></label>
             {error && <p className="form-error">{signupErrors[error] || "登録できませんでした。もう一度お試しください。"}</p>}
             <button className="submit" type="submit">登録して始める</button>
           </form>
