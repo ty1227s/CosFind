@@ -23,7 +23,7 @@ function isMobileMapDevice() {
 }
 
 function useCanvasMapPins() {
-  return isMobileMapDevice() && (window.location.hostname === "cosfind.app" || /Twitter|FBAN|FBAV|Instagram/i.test(navigator.userAgent));
+  return isMobileMapDevice();
 }
 
 function addCanvasPinImage(map: import("maplibre-gl").Map, type: string, active: boolean) {
@@ -186,11 +186,28 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     if (useCanvasMapPins()) {
       const map = mapRef.current;
       const sourceId = "cosfind-mobile-store-pins";
+      const fallbackLayerId = "cosfind-mobile-store-pin-fallback";
       const layerId = "cosfind-mobile-store-pin-symbols";
       const render = () => {
-        const data = { type: "FeatureCollection" as const, features: storesWithPins.map((store) => ({ type: "Feature" as const, properties: { storeId: store.id, icon: addCanvasPinImage(map, store.type, store.id === selected) }, geometry: { type: "Point" as const, coordinates: [store.longitude, store.latitude] } })) };
+        const data = { type: "FeatureCollection" as const, features: storesWithPins.map((store) => {
+          let icon = "";
+          try { icon = addCanvasPinImage(map, store.type, store.id === selected); } catch {}
+          const color = getStoreTypeColor(store.type);
+          return { type: "Feature" as const, properties: { storeId: store.id, icon, color: color.background, active: store.id === selected }, geometry: { type: "Point" as const, coordinates: [store.longitude, store.latitude] } };
+        }) };
         const source = map.getSource(sourceId) as import("maplibre-gl").GeoJSONSource | undefined;
         if (source) source.setData(data); else map.addSource(sourceId, { type: "geojson", data });
+        if (!map.getLayer(fallbackLayerId)) map.addLayer({
+          id: fallbackLayerId,
+          type: "circle",
+          source: sourceId,
+          paint: {
+            "circle-radius": ["case", ["==", ["get", "active"], true], 18, 15],
+            "circle-color": ["get", "color"],
+            "circle-stroke-color": ["case", ["==", ["get", "active"], true], "#25222a", "#ffffff"],
+            "circle-stroke-width": ["case", ["==", ["get", "active"], true], 4, 3],
+          },
+        });
         if (!map.getLayer(layerId)) map.addLayer({ id: layerId, type: "symbol", source: sourceId, layout: { "icon-image": ["get", "icon"], "icon-anchor": "bottom", "icon-allow-overlap": true, "icon-ignore-placement": true } });
         const click = (event: import("maplibre-gl").MapLayerMouseEvent) => {
           const storeId = event.features?.[0]?.properties?.storeId;
@@ -199,8 +216,8 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
         };
         const enter = () => { map.getCanvas().style.cursor = "pointer"; };
         const leave = () => { map.getCanvas().style.cursor = ""; };
-        map.on("click", layerId, click); map.on("mouseenter", layerId, enter); map.on("mouseleave", layerId, leave);
-        canvasPinCleanup = () => { map.off("click", layerId, click); map.off("mouseenter", layerId, enter); map.off("mouseleave", layerId, leave); };
+        map.on("click", fallbackLayerId, click); map.on("mouseenter", fallbackLayerId, enter); map.on("mouseleave", fallbackLayerId, leave);
+        canvasPinCleanup = () => { map.off("click", fallbackLayerId, click); map.off("mouseenter", fallbackLayerId, enter); map.off("mouseleave", fallbackLayerId, leave); };
       };
       let canvasPinCleanup: () => void = () => undefined;
       if (map.loaded()) render(); else map.once("load", render);
