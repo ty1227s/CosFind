@@ -1,0 +1,25 @@
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!baseUrl || !publishableKey) return NextResponse.json({ error: "店舗情報を取得できませんでした" }, { status: 503 });
+
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const url = new URL("/rest/v1/stores", baseUrl);
+  url.searchParams.set("select", "id,name,chain_name,store_type,address,latitude,longitude,created_at,opening_date,closing_date");
+  url.searchParams.set("is_active", "eq.true");
+  url.searchParams.append("or", `(opening_date.is.null,opening_date.lte.${today})`);
+  url.searchParams.append("or", `(closing_date.is.null,closing_date.gte.${today})`);
+
+  const upstream = await fetch(url, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${publishableKey}` },
+    cache: "no-store",
+  });
+  if (!upstream.ok || !upstream.body) return NextResponse.json({ error: "店舗情報を取得できませんでした" }, { status: 502 });
+  return new Response(upstream.body, {
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15" },
+  });
+}

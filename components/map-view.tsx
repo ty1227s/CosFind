@@ -63,6 +63,11 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     let disposed = false;
     let watchId: number | undefined;
     let saveMapView: (() => void) | undefined;
+    const resizeTimers: number[] = [];
+    const resizeMap = () => {
+      if (disposed || !mapRef.current || !container.current?.clientWidth || !container.current.clientHeight) return;
+      mapRef.current.resize();
+    };
     void import("maplibre-gl").then((maplibre) => {
       if (disposed || !container.current) return;
       const savedView = readSavedMapView();
@@ -75,6 +80,11 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
       window.addEventListener("beforeunload", saveMapView);
       if (savedView) map.once("load", () => map.jumpTo({ center: [savedView.longitude, savedView.latitude], zoom: savedView.zoom }));
       mapRef.current = map; setMapReady(true);
+      map.once("load", resizeMap);
+      resizeTimers.push(window.setTimeout(resizeMap, 250), window.setTimeout(resizeMap, 1000));
+      window.addEventListener("resize", resizeMap);
+      window.addEventListener("orientationchange", resizeMap);
+      document.addEventListener("visibilitychange", resizeMap);
       if (!navigator.geolocation) { setLocationState("denied"); return; }
       watchId = navigator.geolocation.watchPosition(({ coords }) => {
         const position: [number, number] = [coords.longitude, coords.latitude];
@@ -87,7 +97,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
         setLocationState("visible");
       }, () => { setLocationState("denied"); onCurrentLocationChangeRef.current?.(null); }, { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 });
     });
-    return () => { disposed = true; saveMapView?.(); if (saveMapView) { window.removeEventListener("pagehide", saveMapView); window.removeEventListener("beforeunload", saveMapView); } if (watchId !== undefined) navigator.geolocation.clearWatch(watchId); if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); userMarkerRef.current?.remove(); userMarkerRef.current = null; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; mapRef.current?.remove(); mapRef.current = null; };
+    return () => { disposed = true; resizeTimers.forEach((timer) => window.clearTimeout(timer)); window.removeEventListener("resize", resizeMap); window.removeEventListener("orientationchange", resizeMap); document.removeEventListener("visibilitychange", resizeMap); saveMapView?.(); if (saveMapView) { window.removeEventListener("pagehide", saveMapView); window.removeEventListener("beforeunload", saveMapView); } if (watchId !== undefined) navigator.geolocation.clearWatch(watchId); if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); userMarkerRef.current?.remove(); userMarkerRef.current = null; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; mapRef.current?.remove(); mapRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -127,6 +137,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     const map = mapRef.current;
     if (!mapReady || !map) return;
     const updateVisibleStoreCount = () => {
+      if (!map.getContainer().clientWidth || !map.getContainer().clientHeight) return;
       const bounds = map.getBounds();
       const visibleIds = stores.filter((store) => bounds.contains([store.longitude, store.latitude])).map((store) => store.id);
       setVisibleStoreCount(visibleIds.length);
