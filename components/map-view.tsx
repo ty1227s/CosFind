@@ -22,6 +22,34 @@ function isMobileMapDevice() {
   return window.matchMedia("(max-width: 700px)").matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+function useCanvasMapPins() {
+  return isMobileMapDevice() && (window.location.hostname === "cosfind.app" || /Twitter|FBAN|FBAV|Instagram/i.test(navigator.userAgent));
+}
+
+function addCanvasPinImage(map: import("maplibre-gl").Map, type: string, active: boolean) {
+  const id = `cosfind-pin:${active ? "active:" : ""}${type}`;
+  if (map.hasImage(id)) return id;
+  const canvas = document.createElement("canvas");
+  canvas.width = 88; canvas.height = 104;
+  const context = canvas.getContext("2d");
+  if (!context) return id;
+  const color = getStoreTypeColor(type);
+  const path = new Path2D("M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z");
+  context.scale(2, 2);
+  context.fillStyle = color.background;
+  context.strokeStyle = active ? "#25222a" : "#ffffff";
+  context.lineWidth = active ? 4 : 3;
+  context.lineJoin = "round";
+  context.fill(path); context.stroke(path);
+  context.fillStyle = color.foreground;
+  context.font = '700 13px "Century Gothic", sans-serif';
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(getStoreTypeCode(type), 22, 21);
+  map.addImage(id, context.getImageData(0, 0, canvas.width, canvas.height), { pixelRatio: 2 });
+  return id;
+}
+
 export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVisibleStoresChange, onCurrentLocationChange }: { stores: StoreResult[]; selected?: string; focusStoresKey?: string; onSelect: (id: string) => void; onVisibleStoresChange?: (ids: string[]) => void; onCurrentLocationChange?: (location: { latitude: number; longitude: number } | null) => void }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
@@ -44,6 +72,23 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
   useEffect(() => { onVisibleStoresChangeRef.current = onVisibleStoresChange; }, [onVisibleStoresChange]);
   useEffect(() => { onCurrentLocationChangeRef.current = onCurrentLocationChange; }, [onCurrentLocationChange]);
+  const selectStore = useCallback((store: StoreResult) => {
+    onSelectRef.current(store.id);
+    if (!isMobileMapDevice()) return;
+    if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current);
+    centerTimerRef.current = window.setTimeout(() => {
+      const map = mapRef.current;
+      const mapElement = container.current;
+      if (!map || !mapElement) return;
+      const popup = mapElement.parentElement?.querySelector<HTMLElement>(".map-card");
+      const mapRect = mapElement.getBoundingClientRect();
+      const popupRect = popup?.getBoundingClientRect();
+      const coveredHeight = popupRect ? Math.max(0, mapRect.bottom - popupRect.top) : 0;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      map.stop(); map.resize();
+      map.flyTo({ center: [store.longitude, store.latitude], offset: [0, -coveredHeight / 2], zoom: map.getZoom(), duration: reduceMotion ? 0 : 700, essential: true });
+    }, 260);
+  }, []);
   const closeLegend = useCallback(() => {
     if (!legendOpen || legendClosing) return;
     setLegendClosing(true);
@@ -131,11 +176,38 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     const markerStoreIds = visibleStoreIds.length > 0
       ? visibleStoreIds
       : stores.filter((store) => currentBounds.contains([store.longitude, store.latitude])).map((store) => store.id);
-    if (markerStoreIds.length > 100) return;
+    if (markerStoreIds.length > 100) {
+      const source = mapRef.current.getSource("cosfind-mobile-store-pins") as import("maplibre-gl").GeoJSONSource | undefined;
+      source?.setData({ type: "FeatureCollection", features: [] });
+      return;
+    }
     const visibleSet = new Set(markerStoreIds);
     const storesWithPins = stores.filter((store) => visibleSet.has(store.id));
-    void import("maplibre-gl").then((maplibre) => { if (!mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const storeName = formatStoreName(store); element.type = "button"; element.dataset.storeId = store.id; element.className = "map-pin"; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.setAttribute("aria-label", `${storeName}、${store.type}`); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => { onSelectRef.current(store.id); if (!isMobileMapDevice()) return; if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); centerTimerRef.current = window.setTimeout(() => { const map = mapRef.current; const mapElement = container.current; if (!map || !mapElement) return; const popup = mapElement.parentElement?.querySelector<HTMLElement>(".map-card"); const mapRect = mapElement.getBoundingClientRect(); const popupRect = popup?.getBoundingClientRect(); const coveredHeight = popupRect ? Math.max(0, mapRect.bottom - popupRect.top) : 0; const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches; map.stop(); map.resize(); map.flyTo({ center: [store.longitude, store.latitude], offset: [0, -coveredHeight / 2], zoom: map.getZoom(), duration: reduceMotion ? 0 : 700, essential: true }); }, 260); }; return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
-  }, [mapReady, stores, visibleStoreIds]);
+    if (useCanvasMapPins()) {
+      const map = mapRef.current;
+      const sourceId = "cosfind-mobile-store-pins";
+      const layerId = "cosfind-mobile-store-pin-symbols";
+      const render = () => {
+        const data = { type: "FeatureCollection" as const, features: storesWithPins.map((store) => ({ type: "Feature" as const, properties: { storeId: store.id, icon: addCanvasPinImage(map, store.type, store.id === selected) }, geometry: { type: "Point" as const, coordinates: [store.longitude, store.latitude] } })) };
+        const source = map.getSource(sourceId) as import("maplibre-gl").GeoJSONSource | undefined;
+        if (source) source.setData(data); else map.addSource(sourceId, { type: "geojson", data });
+        if (!map.getLayer(layerId)) map.addLayer({ id: layerId, type: "symbol", source: sourceId, layout: { "icon-image": ["get", "icon"], "icon-anchor": "bottom", "icon-allow-overlap": true, "icon-ignore-placement": true } });
+        const click = (event: import("maplibre-gl").MapLayerMouseEvent) => {
+          const storeId = event.features?.[0]?.properties?.storeId;
+          const store = storesWithPins.find((item) => item.id === storeId);
+          if (store) selectStore(store);
+        };
+        const enter = () => { map.getCanvas().style.cursor = "pointer"; };
+        const leave = () => { map.getCanvas().style.cursor = ""; };
+        map.on("click", layerId, click); map.on("mouseenter", layerId, enter); map.on("mouseleave", layerId, leave);
+        canvasPinCleanup = () => { map.off("click", layerId, click); map.off("mouseenter", layerId, enter); map.off("mouseleave", layerId, leave); };
+      };
+      let canvasPinCleanup: () => void = () => undefined;
+      if (map.loaded()) render(); else map.once("load", render);
+      return () => { map.off("load", render); canvasPinCleanup(); };
+    }
+    void import("maplibre-gl").then((maplibre) => { if (!mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const storeName = formatStoreName(store); element.type = "button"; element.dataset.storeId = store.id; element.className = "map-pin"; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.setAttribute("aria-label", `${storeName}、${store.type}`); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => selectStore(store); return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
+  }, [mapReady, selected, selectStore, stores, visibleStoreIds]);
 
   useEffect(() => {
     const map = mapRef.current;
