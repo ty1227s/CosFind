@@ -3,6 +3,16 @@ import type {Product,StoreResult} from "@/types/domain";
 import {createSupabaseBrowserClient} from "@/lib/supabase/client";
 import {operatingPeriodQuery} from "@/lib/store-operating-period";
 
+type StoreMetadata={stores?:Record<string,{businessHours?:StoreResult["businessHours"];customName?:boolean;stationNames?:string[]}>};
+
+async function loadStoreMetadata(ids:string[]):Promise<StoreMetadata>{
+ try{
+  const response=await fetch("/api/store-metadata",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids}),cache:"no-store"});
+  if(!response.ok)return{stores:{}};
+  return await response.json() as StoreMetadata;
+ }catch{return{stores:{}}}
+}
+
 export const supabaseRepository:CatalogRepository={
  async searchProducts(query){
   const db=createSupabaseBrowserClient();
@@ -21,8 +31,7 @@ export const supabaseRepository:CatalogRepository={
   const reports=reportResponse.ok?await reportResponse.json() as ReportRow[]:[];
   const reportByStore=new Map<string,{lastReportedAt:string;reportCount:number}>();
   for(const report of reports){const current=reportByStore.get(report.store_id);const lastReportedAt=current&&current.lastReportedAt>report.last_reported_at?current.lastReportedAt:report.last_reported_at;reportByStore.set(report.store_id,{lastReportedAt,reportCount:(current?.reportCount??0)+Number(report.report_count??0)})}
-  const metadataResponse=await fetch(`/api/store-metadata?ids=${encodeURIComponent(storeRows.map(store=>store.id).join(","))}`);
-  const metadata=metadataResponse.ok?await metadataResponse.json() as {stores?:Record<string,{businessHours?:StoreResult["businessHours"];customName?:boolean;stationNames?:string[]}>}:{stores:{}};
+  const metadata=await loadStoreMetadata(storeRows.map(store=>store.id));
   return storeRows.map(store=>{const report=reportByStore.get(store.id);return{id:store.id,name:store.name,chain:store.chain_name??"",type:store.store_type,address:store.address,latitude:store.latitude,longitude:store.longitude,openingDate:store.opening_date??undefined,closingDate:store.closing_date??undefined,customName:metadata.stores?.[store.id]?.customName===true,stationNames:metadata.stores?.[store.id]?.stationNames??[],lastReportedAt:report?.lastReportedAt??store.created_at,variants:[],reportCount:report?.reportCount??0,distanceKm:0,businessHours:metadata.stores?.[store.id]?.businessHours??{}}}) as StoreResult[];
  },
  async getStoresForProduct(productId){
@@ -33,8 +42,7 @@ export const supabaseRepository:CatalogRepository={
   ]);
   if(reportError)throw reportError;if(storeError)throw storeError;
   const reportByStore=new Map((reports??[]).map(report=>[report.store_id,report]));
-  const metadataResponse=await fetch(`/api/store-metadata?ids=${encodeURIComponent((storeRows??[]).map(store=>store.id).join(","))}`);
-  const metadata=metadataResponse.ok?await metadataResponse.json() as {stores?:Record<string,{businessHours?:StoreResult["businessHours"];customName?:boolean;stationNames?:string[]}>}:{stores:{}};
+  const metadata=await loadStoreMetadata((storeRows??[]).map(store=>store.id));
   return(storeRows??[]).map(store=>{const report=reportByStore.get(store.id);return{id:store.id,name:store.name,chain:store.chain_name??"",type:store.store_type,address:store.address,latitude:store.latitude,longitude:store.longitude,openingDate:store.opening_date??undefined,closingDate:store.closing_date??undefined,customName:metadata.stores?.[store.id]?.customName===true,stationNames:metadata.stores?.[store.id]?.stationNames??[],lastReportedAt:report?.last_reported_at??store.created_at,variants:report?.confirmed_variants??[],reportCount:report?.report_count??0,distanceKm:0,businessHours:metadata.stores?.[store.id]?.businessHours??{}}}) as StoreResult[];
  }
 };

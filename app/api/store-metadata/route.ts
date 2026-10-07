@@ -5,10 +5,10 @@ import { UUID_PATTERN } from "@/lib/server/validation";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
 import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
 
-export async function GET(request: Request) {
+async function respondWithMetadata(request: Request, candidateIds: unknown[]) {
   const rate = await consumeRateLimit(`store-metadata:${clientAddress(request)}`, 120, 60_000);
   if (!rate.allowed) return NextResponse.json({ error: "リクエストが多すぎます" }, { status: 429, headers: { "Retry-After": String(rate.retryAfter) } });
-  const ids = new URL(request.url).searchParams.get("ids")?.split(",").filter((id) => UUID_PATTERN.test(id)).slice(0, 500) ?? [];
+  const ids = candidateIds.filter((id): id is string => typeof id === "string" && UUID_PATTERN.test(id)).slice(0, 1000);
   if (!ids.length) return NextResponse.json({ stores: {} });
   const db=createSupabaseAdminClient();
   const visibleResult=await operatingPeriodQuery(db.from("stores").select("id").in("id",ids).eq("is_active",true));
@@ -31,4 +31,17 @@ export async function GET(request: Request) {
     }
   }
   return NextResponse.json({ stores }, { headers: { "Cache-Control": "private, max-age=3, stale-while-revalidate=10" } });
+}
+
+export async function GET(request: Request) {
+  const ids = new URL(request.url).searchParams.get("ids")?.split(",") ?? [];
+  return respondWithMetadata(request, ids);
+}
+
+export async function POST(request: Request) {
+  let body: { ids?: unknown };
+  try { body = await request.json() as { ids?: unknown }; }
+  catch { return NextResponse.json({ error: "入力内容が正しくありません" }, { status: 400 }); }
+  if (!Array.isArray(body.ids)) return NextResponse.json({ error: "入力内容が正しくありません" }, { status: 400 });
+  return respondWithMetadata(request, body.ids);
 }
