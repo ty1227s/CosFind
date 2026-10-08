@@ -6,6 +6,7 @@ import type { StoreResult } from "@/types/domain";
 import { getStoreTypeColor, STORE_TYPE_LEGEND } from "@/lib/store-type-color";
 import { getStoreTypeCode } from "@/lib/store-type-code";
 import { formatStoreName } from "@/lib/store-name";
+import { saveCurrentLocation } from "@/lib/current-location";
 
 const MAP_VIEW_KEY = "cosfind_map_view_v1";
 type SavedMapView = { longitude: number; latitude: number; zoom: number };
@@ -105,6 +106,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
       if (!navigator.geolocation) { setLocationState("denied"); return; }
       watchId = navigator.geolocation.watchPosition(({ coords }) => {
         const position: [number, number] = [coords.longitude, coords.latitude];
+        saveCurrentLocation(coords.latitude, coords.longitude);
         currentPositionRef.current = position;
         onCurrentLocationChangeRef.current?.({ latitude: coords.latitude, longitude: coords.longitude });
         if (!userMarkerRef.current) {
