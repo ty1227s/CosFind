@@ -20,6 +20,20 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#c02672", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  await headers();
-  return <html lang="ja"><head><link rel="stylesheet" href="https://use.typekit.net/iqo1umm.css"/></head><body>{children}<PwaInstallManager /></body></html>;
+  const requestHeaders = await headers();
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+  return (
+    <html lang="ja">
+      <head>
+        <link rel="stylesheet" href="https://use.typekit.net/iqo1umm.css" />
+        <script
+          async
+          nonce={nonce}
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3467776849993552"
+          crossOrigin="anonymous"
+        />
+      </head>
+      <body>{children}<PwaInstallManager /></body>
+    </html>
+  );
 }
