@@ -6,6 +6,8 @@ import { products as seedProducts, stores as seedStores } from "@/lib/mock-data"
 import { readLocalCatalog } from "@/lib/local-catalog";
 import { catalogRepository, usesSupabaseCatalog } from "@/lib/data";
 import { formatStoreName } from "@/lib/store-name";
+import { getFavorites } from "@/lib/favorites-cache";
+import { invalidateClientResource } from "@/lib/client-resource-cache";
 import { formatVariantName } from "@/lib/variant-name";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -77,11 +79,7 @@ export function ReportForm() {
         return result.brands ?? [];
       }),
       catalogRepository.getStores(),
-      fetch("/api/auth/favorites", { cache: "no-store" }).then(async (response) => {
-        const result = await response.json() as { storeIds?: string[]; error?: string };
-        if (!response.ok) throw new Error(result.error || "お気に入り店舗を取得できませんでした");
-        return result.storeIds ?? [];
-      }),
+      getFavorites().then((result) => result.storeIds),
     ]).then(([remoteProducts, remoteBrands, allStores, favoriteStoreIds]) => {
       const firstProduct = remoteProducts[0];
       if (!active) return;
@@ -128,6 +126,7 @@ export function ReportForm() {
       const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const result = await response.json() as { error?: string; awarded?: number };
       if (!response.ok) throw new Error(result.error || "送信できませんでした");
+      invalidateClientResource("auth:history:"); invalidateClientResource("auth:profile");
       setMessage(productMode === "registered" ? `+${result.awarded ?? 1}ポイント獲得しました` : `商品申請と発見情報を受け付けました。承認後に在庫報告へ反映されます。+${result.awarded ?? 3}ポイント獲得しました`); window.dispatchEvent(new Event("cosfind-profile-updated"));
       setPhase("done");
     } catch (error) { setMessage(error instanceof Error ? error.message : "送信できませんでした。"); setPhase("error"); }

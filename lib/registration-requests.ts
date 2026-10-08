@@ -10,5 +10,9 @@ export function readRequests<T>(key: string): T[] {
 
 export function addRequest<T>(key: string, request: T) {
   const requests = readRequests<T>(key); localStorage.setItem(key, JSON.stringify([request, ...requests]));
+  invalidateClientResource("auth:history:");
+  invalidateClientResource("auth:profile");
   window.dispatchEvent(new Event("cosfind-requests-updated"));
 }
+import { invalidateClientResource } from "@/lib/client-resource-cache";
+

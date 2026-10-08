@@ -7,15 +7,13 @@ import { SiteHeader } from "./site-header";
 import { FavoriteButton } from "./favorite-button";
 import { formatStoreName } from "@/lib/store-name";
 import { ProductCategoryBadges } from "./product-category-badge";
+import { FavoritesRequestError, getFavorites, invalidateFavoritesCache, type FavoritesData } from "@/lib/favorites-cache";
 
-type ProductFavorite = { id: string; name: string; brand: string; category: string; additionalCategories: string[]; variants: { name: string; colorCode: string }[] };
-type StoreFavorite = { id: string; name: string; chain: string; address: string };
-type Favorites = { products: ProductFavorite[]; stores: StoreFavorite[] };
 type FavoriteKind = "products" | "stores";
 
 export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
   const router = useRouter();
-  const [favorites, setFavorites] = useState<Favorites | null>(null);
+  const [favorites, setFavorites] = useState<FavoritesData | null>(null);
   const [visibleKind, setVisibleKind] = useState<FavoriteKind>(kind);
   const [query, setQuery] = useState("");
   const [brand, setBrand] = useState("");
@@ -25,17 +23,18 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
   const [deleting, setDeleting] = useState(false);
   const navigationTimer = useRef<number | null>(null);
 
-  const load = useCallback(() => void fetch("/api/auth/favorites", { cache: "no-store" })
-    .then(async (response) => {
-      if (response.status === 401) { window.location.href = "/login"; return; }
-      const data = await response.json() as Favorites & { error?: string };
-      if (!response.ok) throw new Error(data.error || "読み込めませんでした");
+  const load = useCallback(async (force = false) => {
+    try {
+      const data = await getFavorites(force);
       setFavorites(data);
       const availableIds = new Set((kind === "products" ? data.products : data.stores).map((item) => item.id));
       setSelected((ids) => ids.filter((id) => availableIds.has(id)));
       setError("");
-    })
-    .catch((cause) => setError(cause instanceof Error ? cause.message : "読み込めませんでした")), [kind]);
+    } catch (cause) {
+      if (cause instanceof FavoritesRequestError && cause.status === 401) { window.location.href = "/login"; return; }
+      setError(cause instanceof Error ? cause.message : "読み込めませんでした");
+    }
+  }, [kind]);
 
   useEffect(() => { setQuery(""); setBrand(""); setCategory(""); setSelected([]); }, [kind]);
   useEffect(() => { setVisibleKind(kind); }, [kind]);
@@ -46,7 +45,7 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
       if (navigationTimer.current !== null) window.clearTimeout(navigationTimer.current);
     };
   }, [router]);
-  useEffect(() => { load(); window.addEventListener("cosfind-favorites-updated", load); return () => window.removeEventListener("cosfind-favorites-updated", load); }, [load]);
+  useEffect(() => { void load(); const refresh = () => void load(); window.addEventListener("cosfind-favorites-updated", refresh); return () => window.removeEventListener("cosfind-favorites-updated", refresh); }, [load]);
 
   const keyword = query.trim().toLowerCase();
   const productBrands = useMemo(() => [...new Set((favorites?.products ?? []).map((item) => item.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja")), [favorites]);
@@ -76,7 +75,8 @@ export function FavoriteManager({ kind }: { kind: FavoriteKind }) {
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || "削除できませんでした");
       setSelected([]);
-      load();
+      invalidateFavoritesCache();
+      await load();
       window.dispatchEvent(new Event("cosfind-favorites-updated"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "削除できませんでした");

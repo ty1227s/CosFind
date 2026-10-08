@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { SiteHeader } from "./site-header";
 import { formatVariantName } from "@/lib/variant-name";
 import { ProductCategoryBadges } from "./product-category-badge";
+import { getClientResource } from "@/lib/client-resource-cache";
 
 type HistoryKind = "reports" | "products" | "stores";
 type HistoryResponse = { items: Record<string, unknown>[]; page: number; pageSize: number; total: number; totalPages: number; error?: string };
@@ -30,20 +31,20 @@ export function ProfileHistory({ kind }: { kind: HistoryKind }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const controller = new AbortController();
+    let active = true;
     setData(null);
     setError("");
-    void fetch(`/api/auth/history?kind=${kind}&page=${page}`, { cache: "no-store", signal: controller.signal })
-      .then(async (response) => {
+    void getClientResource<HistoryResponse>(`auth:history:${kind}:${page}`, async () => {
+        const response = await fetch(`/api/auth/history?kind=${kind}&page=${page}`, { cache: "no-store" });
         const result = await response.json() as HistoryResponse;
         if (!response.ok) throw new Error(result.error || "履歴を読み込めませんでした");
-        setData(result);
+        return result;
       })
+      .then((result) => { if (active) setData(result); })
       .catch((reason: unknown) => {
-        if (reason instanceof DOMException && reason.name === "AbortError") return;
-        setError(reason instanceof Error ? reason.message : "履歴を読み込めませんでした");
+        if (active) setError(reason instanceof Error ? reason.message : "履歴を読み込めませんでした");
       });
-    return () => controller.abort();
+    return () => { active = false; };
   }, [kind, page]);
 
   const selected = tabs[kind];
