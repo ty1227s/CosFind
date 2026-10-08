@@ -24,9 +24,9 @@ export function LinesView({ model }: { model: Model }) {
     </header>
     {lines.length ? selectedCompany ? <section className="area-municipality-section" aria-labelledby="line-heading">
       <div className="area-section-heading"><div><p className="directory-step-label">地域：{selectedRegionLabel || "指定なし"}</p><h2 id="line-heading">{selectedCompanyLabel}の路線</h2><p>路線を選ぶと登録駅を確認できます。</p></div><Link href={selectedRegion ? `/lines?region=${encodeURIComponent(selectedRegion)}` : "/lines"}>← 鉄道会社一覧へ戻る</Link></div>
-      <div className="area-municipality-grid railway-line-directory-grid">{visibleLines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
+      {visibleLines.length ? <div className="area-municipality-grid railway-line-directory-grid">{visibleLines.map((line) => <Link href={railwayLineHref(line.name)} key={line.name}>
         <span className="railway-line-card-name">{line.visualType==="image"&&line.imageUrl?<img src={line.imageUrl} alt=""/>:line.lineColor?<i className="railway-line-color-mark" style={{backgroundColor:line.lineColor}}/>:null}<b>{line.name}</b></span><span>{line.stationCount}<small>駅</small></span>
-      </Link>)}</div>
+      </Link>)}</div> : <div className="area-empty"><b>この地域を通る登録路線はありません</b><p>路線に登録された駅の都道府県をもとに表示しています。</p></div>}
     </section> : selectedRegion ? <section className="area-municipality-section" aria-labelledby="company-heading">
       <div className="area-section-heading"><div><h2 id="company-heading">{selectedRegionLabel}の鉄道会社</h2><p>鉄道会社を選ぶと登録路線を確認できます。</p></div><Link href="/lines">← 地域一覧へ戻る</Link></div>
       <div className="area-municipality-grid railway-company-directory-grid">{companiesInRegion.map((company) => <Link href={`/lines?region=${encodeURIComponent(selectedRegion)}&company=${encodeURIComponent(company.name)}`} key={company.name}><b>{company.name}</b><span>{company.lineCount}<small>路線</small></span></Link>)}{selectedRegion === UNASSIGNED_REGION && unassignedLines.length > 0 && <Link href={`/lines?region=${UNASSIGNED_REGION}&company=${UNASSIGNED_COMPANY}`}><b>鉄道会社未登録</b><span>{unassignedLines.length}<small>路線</small></span></Link>}</div>
