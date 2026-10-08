@@ -15,7 +15,7 @@ export async function loadPage({ params }: PageProps){
   const jsonLd = { "@context": "https://schema.org", "@graph": [
     { "@type": "BreadcrumbList", itemListElement: [
       { "@type": "ListItem", position: 1, name: "ホーム", item: publicSiteOrigin },
-      { "@type": "ListItem", position: 2, name: "駅から探す", item: `${publicSiteOrigin}/stations` },
+      { "@type": "ListItem", position: 2, name: "駅・路線から探す", item: `${publicSiteOrigin}/lines` },
       { "@type": "ListItem", position: 3, name: stationName, item: pageUrl },
     ] },
     { "@type": "ItemList", name: `${stationName}周辺のコスメ取扱店舗`, numberOfItems: station.stores.length, itemListElement: station.stores.map((store, index) => ({

@@ -10,7 +10,7 @@ export function StationView({model}:{model:Model}){
 const {stationName,station,jsonLd}=model;
 return <><SiteHeader/><main className="area-directory-page">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
-    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><Link href="/stations">駅から探す</Link><span>›</span><span>{stationName}</span></nav>
+    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><Link href="/lines">駅・路線から探す</Link><span>›</span><span>{stationName}</span></nav>
     <header className="area-directory-hero compact">
       <p className="eyebrow">STATION STORE GUIDE</p>
       <h1>{stationName}周辺のコスメ取扱店舗</h1>

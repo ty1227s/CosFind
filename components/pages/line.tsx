@@ -8,7 +8,7 @@ const {lineName,line,jsonLd}=model;
 const stationMarkerColor=line.lineColor||"#c32673";
 return <><SiteHeader/><main className="area-directory-page">
     <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,"\\u003c")}}/>
-    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><Link href="/lines">路線から探す</Link><span>›</span><span>{lineName}</span></nav>
+    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><Link href="/lines">駅・路線から探す</Link><span>›</span><span>{lineName}</span></nav>
     <header className="area-directory-hero compact">
       <p className="eyebrow">RAILWAY LINE GUIDE</p><div className="railway-line-page-title">{line.visualType==="image"&&line.imageUrl?<img src={line.imageUrl} alt={`${lineName}の路線記号`}/>:line.lineColor?<i className="railway-line-color-mark" style={{backgroundColor:line.lineColor}}/>:null}<h1>{lineName}の駅一覧</h1></div>
       {line.companies.length>0&&<p className="railway-line-company">運行会社：{line.companies.join(" / ")}</p>}

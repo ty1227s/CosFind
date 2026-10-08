@@ -16,10 +16,10 @@ export function LinesView({ model }: { model: Model }) {
     selectedRegionLabel
   } = model;
   return <><SiteHeader/><main className="area-directory-page">
-    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><span>路線から探す</span></nav>
+    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><span>駅・路線から探す</span></nav>
     <header className="area-directory-hero">
       <p className="eyebrow">RAILWAY LINE DIRECTORY</p>
-      <h1>路線からコスメ取扱店舗を探す</h1>
+      <h1>駅・路線からコスメ取扱店舗を探す</h1>
       <p>地域、鉄道会社、路線の順に選ぶと、登録順に並んだ駅と、沿線のコスメ・スキンケア取扱店舗を確認できます。</p>
     </header>
     {lines.length ? selectedCompany ? <section className="area-municipality-section" aria-labelledby="line-heading">
