@@ -2,7 +2,7 @@
   "id": "/",
   "name": "CosFind（コスファインド）",
   "short_name": "CosFind",
-  "description": "欲しいコスメが、どこにあるか分かる。",
+  "description": "欲しいコスメ、どのお店にある？",
   "lang": "ja",
   "dir": "ltr",
   "start_url": "/?source=pwa",
