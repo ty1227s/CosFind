@@ -39,6 +39,7 @@ const EMPTY_UNREGISTERED_PRODUCT: UnregisteredProductDraft = {
 export function ReportForm() {
   const searchParams = useSearchParams();
   const requestedStoreId = searchParams.get("store") || "";
+  const requestedProductId = searchParams.get("product") || "";
   const [products, setProducts] = useState(usesSupabaseCatalog ? [] : seedProducts);
   const [stores, setStores] = useState(usesSupabaseCatalog ? [] : seedStores);
   const [brandOptions, setBrandOptions] = useState<string[]>(() => [...new Set(seedProducts.map((item) => item.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja")));
@@ -61,12 +62,14 @@ export function ReportForm() {
     setProducts(catalog.products);
     setStores(catalog.stores);
     setBrandOptions([...new Set(catalog.products.map((item) => item.brand).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ja")));
-    setBrandFilter(catalog.products[0]?.brand || "");
-    setProductId(catalog.products[0]?.id || "");
-    setVariantId(catalog.products[0]?.variants[0]?.id || "");
+    const requestedProduct = catalog.products.find((item) => item.id === requestedProductId);
+    const initialProduct = requestedProduct ?? catalog.products[0];
+    setBrandFilter(initialProduct?.brand || "");
+    setProductId(initialProduct?.id || "");
+    setVariantId(initialProduct?.variants[0]?.id || "");
     setStoreId(catalog.stores.some((store) => store.id === requestedStoreId) ? requestedStoreId : (catalog.stores[0]?.id || ""));
     setStoresLoading(false);
-  }, [requestedStoreId]);
+  }, [requestedProductId, requestedStoreId]);
 
   useEffect(() => {
     if (!usesSupabaseCatalog) return;
@@ -81,7 +84,8 @@ export function ReportForm() {
       catalogRepository.getStores(),
       getFavorites().then((result) => result.storeIds),
     ]).then(([remoteProducts, remoteBrands, allStores, favoriteStoreIds]) => {
-      const firstProduct = remoteProducts[0];
+      const requestedProduct = remoteProducts.find((item) => item.id === requestedProductId);
+      const firstProduct = requestedProduct ?? remoteProducts[0];
       if (!active) return;
       const favoriteIds = new Set(favoriteStoreIds);
       const remoteStores = requestedStoreId
@@ -103,7 +107,7 @@ export function ReportForm() {
       setStoresLoading(false);
     });
     return () => { active = false; };
-  }, [requestedStoreId]);
+  }, [requestedProductId, requestedStoreId]);
 
   const product = useMemo(() => products.find((item) => item.id === productId), [productId, products]);
   const categories = useMemo(() => [...new Set(products.filter((item) => !brandFilter || item.brand === brandFilter).flatMap((item) => [item.category,...(item.additionalCategories??[])]))].sort((a, b) => a.localeCompare(b, "ja")), [products, brandFilter]);
