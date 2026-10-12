@@ -1,6 +1,7 @@
 import "server-only";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 type Brand = { id: string; name: string; name_kana: string | null };
+type BrandWithProducts = Brand & { products: { id: string }[] };
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 const hiragana = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん".split("");
 const smallKana: Record<string, string> = { ぁ: "あ", ぃ: "い", ぅ: "う", ぇ: "え", ぉ: "お", ゃ: "や", ゅ: "ゆ", ょ: "よ", っ: "つ", ゎ: "わ" };
@@ -22,9 +23,14 @@ export async function loadPage({ requested = "" }: { requested?: string }){
   let brands: Brand[] = [];
   let error = "";
   try {
-    const result = await createSupabaseAdminClient().from("brands").select("id,name,name_kana").order("name");
+    const result = await createSupabaseAdminClient()
+      .from("brands")
+      .select("id,name,name_kana,products!inner(id)")
+      .eq("products.is_active", true)
+      .limit(1, { referencedTable: "products" })
+      .order("name");
     if (result.error) throw result.error;
-    brands = (result.data ?? []) as Brand[];
+    brands = ((result.data ?? []) as BrandWithProducts[]).map(({ id, name, name_kana }) => ({ id, name, name_kana }));
   } catch { error = "ブランド一覧を取得できませんでした。"; }
   const counts = new Map<string, number>();
   brands.forEach((brand) => { const key = brandInitial(brand); counts.set(key, (counts.get(key) || 0) + 1); });
