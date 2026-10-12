@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { parseCoordinatePair } from "@/lib/coordinates";
 
-export function CoordinatePicker({ initialLatitude = 35.6896, initialLongitude = 139.7006, address = "" }: { initialLatitude?: number; initialLongitude?: number; address?: string }) {
+export function CoordinatePicker({ initialLatitude = 35.6896, initialLongitude = 139.7006, address = "", autoGeocodeAddress = true }: { initialLatitude?: number; initialLongitude?: number; address?: string; autoGeocodeAddress?: boolean }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
   const markerRef = useRef<import("maplibre-gl").Marker | null>(null);
@@ -75,6 +75,10 @@ export function CoordinatePicker({ initialLatitude = 35.6896, initialLongitude =
   useEffect(() => {
     if (addressSearchTimer.current !== null) window.clearTimeout(addressSearchTimer.current);
     const normalizedAddress = address.trim();
+    if (!autoGeocodeAddress) {
+      lastObservedAddress.current = normalizedAddress;
+      return;
+    }
     if (normalizedAddress === lastObservedAddress.current) return;
     lastObservedAddress.current = normalizedAddress;
     if (pastedForAddress.current === normalizedAddress) return;
@@ -82,7 +86,7 @@ export function CoordinatePicker({ initialLatitude = 35.6896, initialLongitude =
     if (normalizedAddress.length < 4) { setGeocodeState("idle"); return; }
     addressSearchTimer.current = window.setTimeout(() => void locateAddress(address), 900);
     return () => { if (addressSearchTimer.current !== null) window.clearTimeout(addressSearchTimer.current); };
-  }, [address]);
+  }, [address, autoGeocodeAddress]);
 
   function applyCoordinateText(value: string) {
     setCoordinateText(value);
