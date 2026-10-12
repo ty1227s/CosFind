@@ -12,6 +12,7 @@ export function CoordinatePicker({ initialLatitude = 35.6896, initialLongitude =
   const searchSequence = useRef(0);
   const addressSearchTimer = useRef<number | null>(null);
   const pastedForAddress = useRef<string | null>(null);
+  const lastObservedAddress = useRef(address.trim());
   const [geocodeState, setGeocodeState] = useState<"idle" | "searching" | "found" | "missing" | "error">("idle");
   const [matchedQuery, setMatchedQuery] = useState("");
   const [coordinateText, setCoordinateText] = useState("");
@@ -74,6 +75,8 @@ export function CoordinatePicker({ initialLatitude = 35.6896, initialLongitude =
   useEffect(() => {
     if (addressSearchTimer.current !== null) window.clearTimeout(addressSearchTimer.current);
     const normalizedAddress = address.trim();
+    if (normalizedAddress === lastObservedAddress.current) return;
+    lastObservedAddress.current = normalizedAddress;
     if (pastedForAddress.current === normalizedAddress) return;
     pastedForAddress.current = null;
     if (normalizedAddress.length < 4) { setGeocodeState("idle"); return; }
