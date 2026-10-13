@@ -711,3 +711,6 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
 }
 
 .directory-pagination{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin-top:22px}.directory-pagination a{justify-self:start;border:1px solid #decbd5;border-radius:10px;background:#fff;padding:9px 14px;color:#87365e;font-size:12px;font-weight:700;text-decoration:none}.directory-pagination a:last-child{justify-self:end}.directory-pagination b{font-size:12px;color:var(--muted)}
+
+/* Brand product genre filter. */
+.brand-genre-filter{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:20px}.brand-genre-filter>span{font-size:14px;font-weight:700}.brand-genre-filter select{width:100%;max-width:320px;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font-size:16px}.brand-genre-filter select:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
