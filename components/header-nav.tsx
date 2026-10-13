@@ -16,6 +16,7 @@ export function HeaderNav() {
   const [sessionChecked, setSessionChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
   const [mounted, setMounted] = useState(false);
   const [loginNavigating, setLoginNavigating] = useState(false);
 
@@ -79,6 +80,41 @@ export function HeaderNav() {
       window.scrollTo({ left: scrollX, top: scrollY, behavior: "instant" });
     };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen || !mounted) return;
+    const drawer = drawerRef.current;
+    if (!drawer) return;
+    const trigger = menuToggleRef.current;
+    const focusableItems = () => [...drawer.querySelectorAll<HTMLElement>(
+      'a[href],button,input,select,textarea,[tabindex],[contenteditable="true"]'
+    )].filter((element) => element.tabIndex >= 0 &&
+      !element.matches(':disabled') && !element.closest('[inert]') &&
+      element.getClientRects().length > 0 &&
+      getComputedStyle(element).visibility !== 'hidden');
+    const focusFirst = () => (focusableItems()[0] ?? drawer).focus();
+    const trapTab = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || event.altKey || event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const items = focusableItems();
+      const current = items.indexOf(document.activeElement as HTMLElement);
+      const next = current < 0 ? (event.shiftKey ? items.length - 1 : 0)
+        : (current + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+      (items[next] ?? drawer).focus();
+    };
+    const keepFocusInside = (event: FocusEvent) => {
+      if (event.target instanceof Node && !drawer.contains(event.target)) focusFirst();
+    };
+    document.addEventListener('keydown', trapTab, true);
+    document.addEventListener('focusin', keepFocusInside);
+    focusFirst();
+    return () => {
+      document.removeEventListener('keydown', trapTab, true);
+      document.removeEventListener('focusin', keepFocusInside);
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    };
+  }, [menuOpen, mounted]);
 
   if (adminArea) return <nav className="header-nav admin-header-nav"><span className="admin-session-label">{pathname === "/admin/login" ? "管理画面" : "管理画面ログイン中"}</span>{pathname !== "/admin/login" && <form action="/api/admin/logout" method="post" className="header-logout admin-header-logout"><button type="submit">ログアウト</button></form>}</nav>;
 
@@ -151,10 +187,10 @@ export function HeaderNav() {
   return <nav className="header-nav">
     <div className="header-menu desktop-header-menu">{menuItems()}</div>
     {sessionChecked && !session.authenticated && <Link href="/login" className={`login-link header-login-link${loginNavigating ? " is-navigating" : ""}`} aria-busy={loginNavigating} onClick={() => { setMenuOpen(false); setLoginNavigating(true); }}>{loginNavigating && <i className="header-login-spinner"/>}{loginNavigating ? "移動中…" : "ログイン"}</Link>}
-    <button type="button" className="menu-toggle" aria-label="メニューを開く" aria-expanded={menuOpen} aria-controls="mobile-header-menu" onClick={() => setMenuOpen(true)}><span /><span /><span /></button>
+    <button ref={menuToggleRef} type="button" className="menu-toggle" aria-label="メニューを開く" aria-expanded={menuOpen} aria-controls="mobile-header-menu" onClick={() => setMenuOpen(true)}><span /><span /><span /></button>
     {mounted && createPortal(<div className={`mobile-menu-layer ${menuOpen ? "is-open" : ""}`} aria-hidden={!menuOpen}>
-      <button type="button" className="menu-backdrop" aria-label="メニューを閉じる" tabIndex={menuOpen ? 0 : -1} onClick={() => setMenuOpen(false)} />
-      <aside ref={drawerRef} id="mobile-header-menu" className="mobile-menu-drawer" aria-label="メインメニュー" inert={!menuOpen ? true : undefined}>{menuItems(true)}</aside>
+      <button type="button" className="menu-backdrop" aria-label="メニューを閉じる" tabIndex={-1} onClick={() => setMenuOpen(false)} />
+      <aside ref={drawerRef} tabIndex={-1} role="dialog" aria-modal={menuOpen ? true : undefined} id="mobile-header-menu" className="mobile-menu-drawer" aria-label="メインメニュー" inert={!menuOpen ? true : undefined}>{menuItems(true)}</aside>
     </div>, document.body)}
   </nav>;
 }

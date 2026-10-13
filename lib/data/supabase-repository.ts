@@ -3,20 +3,9 @@ import type {Product,StoreResult} from "@/types/domain";
 import {createSupabaseBrowserClient} from "@/lib/supabase/client";
 import {operatingPeriodQuery} from "@/lib/store-operating-period";
 
-type StoreMetadata={stores?:Record<string,{businessHours?:StoreResult["businessHours"];customName?:boolean;stationNames?:string[]}>};
+import {createStoreMetadataLoader} from "@/lib/store-metadata-cache";
 
-async function loadStoreMetadata(ids:string[]):Promise<StoreMetadata>{
- const chunks:string[][]=[];
- for(let index=0;index<ids.length;index+=100)chunks.push(ids.slice(index,index+100));
- const responses=await Promise.all(chunks.map(async chunk=>{
-  try{
-   const response=await fetch("/api/store-metadata",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ids:chunk}),cache:"no-store"});
-   if(!response.ok)return{};
-   return (await response.json() as StoreMetadata).stores??{};
-  }catch{return{}}
- }));
- return{stores:Object.assign({},...responses)};
-}
+const loadStoreMetadata=createStoreMetadataLoader();
 
 export const supabaseRepository:CatalogRepository={
  async searchProducts(query){
@@ -33,7 +22,8 @@ export const supabaseRepository:CatalogRepository={
   const[reportResponse,storeResponse]=await Promise.all([fetch("/api/public/map-reports",{cache:"no-store"}),fetch("/api/public/map-stores",{cache:"no-store"})]);
   if(!storeResponse.ok)throw new Error("店舗情報を取得できませんでした");
   const storeRows=await storeResponse.json() as StoreRow[];
-  const reports=reportResponse.ok?await reportResponse.json() as ReportRow[]:[];
+  if(!reportResponse.ok)throw new Error("在庫報告を取得できませんでした");
+  const reports=await reportResponse.json() as ReportRow[];
   const reportByStore=new Map<string,{lastReportedAt:string;reportCount:number}>();
   for(const report of reports){const current=reportByStore.get(report.store_id);const lastReportedAt=current&&current.lastReportedAt>report.last_reported_at?current.lastReportedAt:report.last_reported_at;reportByStore.set(report.store_id,{lastReportedAt,reportCount:(current?.reportCount??0)+Number(report.report_count??0)})}
   const metadata=await loadStoreMetadata(storeRows.map(store=>store.id));
