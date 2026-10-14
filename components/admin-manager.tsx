@@ -387,13 +387,11 @@ function formatOperatingDate(value?: string, fallback="未設定") { return valu
 function formatProductVariantDetails(variants: ProductVariant[]) {
   if (!variants.length) return "未登録";
   return variants.map((variant, index) => [
-    `【${index + 1}】`,
-    `カラー名：${variant.name || "未登録"}`,
-    `色番：${variant.colorCode || "未登録"}`,
-    `JAN：${variant.janCode || "未登録"}`,
-    `発売日：${formatOperatingDate(variant.releaseDate)}`,
-    `バリエーションID：${variant.id}`,
-  ].join("\n")).join("\n\n");
+    `${index + 1}. ${variant.name || "カラー名なし"}`,
+    `色番 ${variant.colorCode || "—"}`,
+    `JAN ${variant.janCode || "—"}`,
+    `発売日 ${formatOperatingDate(variant.releaseDate, "—")}`,
+  ].join(" ｜ ")).join("\n");
 }
 
 function AdminPagination({ page, pageCount, total, pageSize, onChange }: { page: number; pageCount: number; total: number; pageSize: number; onChange: (page: number) => void }) {
