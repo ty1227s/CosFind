@@ -714,3 +714,19 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
 
 /* Brand product genre filter. */
 .brand-genre-filter{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:20px}.brand-genre-filter>span{font-size:14px;font-weight:700}.brand-genre-filter select{width:100%;max-width:320px;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font-size:16px}.brand-genre-filter select:focus-visible{outline:2px solid var(--pink);outline-offset:2px}
+
+/* English-only labels and point values use the same Latin typeface throughout CosFind. */
+:root{--font-century-gothic:"Century Gothic",CenturyGothic,AppleGothic,sans-serif}
+.eyebrow,
+.points-badge,
+.profile-points>b,
+#mobile-header-menu .drawer-profile-points,
+.user-cols>span:nth-child(3),
+.admin-detail-modal dd,
+.store-pin-code,
+.map-pin .store-type-code,
+.store-detail-pin .store-type-code,
+.store-type-legend .legend-store-code,
+.map-legend-dialog .legend-store-code,
+.store-detail-title>i,
+.area-store-code{font-family:var(--font-century-gothic)}
