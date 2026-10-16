@@ -9,16 +9,15 @@ import {createStoreMetadataLoader} from "@/lib/store-metadata-cache";
 const loadStoreMetadata=createStoreMetadataLoader();
 const PUBLIC_PAGE_SIZE=500;
 type StoreRow={id:string;name:string;chain_name:string|null;store_type:string;address:string;latitude:number;longitude:number;created_at:string;opening_date:string|null;closing_date:string|null};
+type ProductRow={id:string;name:string;category:string;additional_categories:string[]|null;jan_code:string|null;additional_jan_codes:string[]|null;release_date:string|null;spf:number|null;pa:string|null;brands:{name:string}|{name:string}[]|null;product_variants:{id:string;variant_name:string;color_code:string|null;jan_code:string|null;release_date:string|null}[]};
 async function fetchAllPublicRows<T>(path:string){const rows:T[]=[];for(let offset=0;;offset+=PUBLIC_PAGE_SIZE){const response=await fetch(`${path}?offset=${offset}`,{cache:"no-store"});if(!response.ok)throw new Error("店舗情報を取得できませんでした");const page=await response.json() as T[];rows.push(...page);if(page.length<PUBLIC_PAGE_SIZE)return rows;}}
 
 export const supabaseRepository:CatalogRepository={
  async searchProducts(query){
   const db=createSupabaseBrowserClient();
-  let request=db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active",true).order("name").order("created_at",{referencedTable:"product_variants"}).limit(500);
   const keyword=query.trim();
-  if(keyword)request=/^\d+$/.test(keyword)?request.or(`name.ilike.%${keyword}%,jan_code.eq.${keyword},additional_jan_codes.cs.{${keyword}}`):request.ilike("name",`%${keyword.replaceAll("%","\\%").replaceAll("_","\\_")}%`);
-  const{data,error}=await request;if(error)throw error;
- return(data??[]).map(row=>({id:row.id,brand:(row.brands as unknown as {name:string}|null)?.name??"",name:row.name,category:row.category,additionalCategories:row.additional_categories??[],janCode:row.jan_code??"",additionalJanCodes:row.additional_jan_codes??[],releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,variants:((row.product_variants??[]) as unknown as {id:string;variant_name:string;color_code:string|null;jan_code:string|null;release_date:string|null}[]).map(v=>({id:v.id,name:v.variant_name,colorCode:v.color_code??undefined,janCode:v.jan_code??"",releaseDate:v.release_date??""}))})) as Product[];
+  const rows=await fetchAllSupabaseRows<ProductRow>((from,to)=>{let request=db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active",true).order("name").order("id").order("created_at",{referencedTable:"product_variants"});if(keyword)request=/^\d+$/.test(keyword)?request.or(`name.ilike.%${keyword}%,jan_code.eq.${keyword},additional_jan_codes.cs.{${keyword}}`):request.ilike("name",`%${keyword.replaceAll("%","\\%").replaceAll("_","\\_")}%`);return request.range(from,to)},500);
+ return rows.map(row=>({id:row.id,brand:(Array.isArray(row.brands)?row.brands[0]?.name:row.brands?.name)??"",name:row.name,category:row.category,additionalCategories:row.additional_categories??[],janCode:row.jan_code??"",additionalJanCodes:row.additional_jan_codes??[],releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,variants:(row.product_variants??[]).map(v=>({id:v.id,name:v.variant_name,colorCode:v.color_code??undefined,janCode:v.jan_code??"",releaseDate:v.release_date??""}))})) as Product[];
  },
  async getStores(){
   type ReportRow={store_id:string;last_reported_at:string;report_count:number|null};

@@ -1,5 +1,6 @@
 import "server-only";
 import {createSupabaseAdminClient} from "@/lib/supabase/admin";
+import {fetchAllSupabaseRows} from "@/lib/supabase-pagination";
 type NewProduct = {
   id: string;
   name: string;
@@ -30,18 +31,16 @@ export async function loadPage({ searchParams }: { searchParams: Promise<{ date?
   const selectedDate = validDate((await searchParams).date, today);
   const db = createSupabaseAdminClient();
   const columns = "id,name,category,additional_categories,release_date,brands(name),product_variants(id,variant_name,color_code,release_date)";
-  const [datedProducts, datedVariants] = await Promise.all([
-    db.from("products").select(columns).eq("is_active", true).eq("release_date", selectedDate).order("created_at", { referencedTable: "product_variants" }).limit(500),
-    db.from("product_variants").select("product_id").eq("release_date", selectedDate).limit(1000),
+  const [directRows, datedVariants] = await Promise.all([
+    fetchAllSupabaseRows<NewProduct>((from,to)=>db.from("products").select(columns).eq("is_active", true).eq("release_date", selectedDate).order("id").order("created_at", { referencedTable: "product_variants" }).range(from,to),500),
+    fetchAllSupabaseRows<{product_id:string}>((from,to)=>db.from("product_variants").select("product_id").eq("release_date", selectedDate).order("product_id").range(from,to)),
   ]);
-  const directRows = (datedProducts.data ?? []) as unknown as NewProduct[];
   const directIds = new Set(directRows.map((product) => product.id));
-  const variantProductIds = [...new Set((datedVariants.data ?? []).map((variant) => variant.product_id).filter((id) => !directIds.has(id)))];
-  const variantProducts = variantProductIds.length
-    ? await db.from("products").select(columns).eq("is_active", true).in("id", variantProductIds).order("created_at", { referencedTable: "product_variants" })
-    : { data: [] as unknown[], error: null };
-  const resultError = Boolean(datedProducts.error ?? datedVariants.error ?? variantProducts.error);
-  const products = [...directRows, ...((variantProducts.data ?? []) as unknown as NewProduct[])]
+  const variantProductIds = [...new Set(datedVariants.map((variant) => variant.product_id).filter((id) => !directIds.has(id)))];
+  const variantRows:NewProduct[]=[];
+  for(let index=0;index<variantProductIds.length;index+=200){const ids=variantProductIds.slice(index,index+200);const result=await db.from("products").select(columns).eq("is_active", true).in("id",ids).order("id").order("created_at", { referencedTable: "product_variants" });if(result.error)throw result.error;variantRows.push(...((result.data??[]) as unknown as NewProduct[]));}
+  const resultError = false;
+  const products = [...directRows, ...variantRows]
     .sort((a, b) => brandName(a.brands).localeCompare(brandName(b.brands), "ja"));
   const dateLabel = selectedDate === today ? "今日" : selectedDate === shiftDate(today, -1) ? "昨日" : selectedDate === shiftDate(today, 1) ? "明日" : "選択日";
 

@@ -19,6 +19,7 @@ type Station = { name: string; prefecture?: string; municipality?: string; lineN
 type RailwayLine = { name: string; companies?: string[]; company?: string; stationNames?: string[]; visualType?: "image" | "color"; imageUrl?: string; lineColor?: string };
 type RailwayCompany = { name: string; regions?: string[] };
 type StoreRow = { id:string;name:string;chain_name:string|null;store_type:string;address:string;latitude:number;longitude:number;opening_date:string|null;closing_date:string|null;created_at:string };
+type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
@@ -34,15 +35,15 @@ export async function GET() {
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
     const db = createSupabaseAdminClient();
-    const [brandsResult, chainsResult, productsResult, storeRows, productRequestsResult, storeRequestsResult] = await Promise.all([
+    const [brandsResult, chainsResult, productRows, storeRows, productRequestsResult, storeRequestsResult] = await Promise.all([
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
-      db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name").order("created_at", { referencedTable: "product_variants" }),
+      fetchAllSupabaseRows<ProductRow>((from,to)=>db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name").order("id").order("created_at", { referencedTable: "product_variants" }).range(from,to)),
       fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name").order("id").range(from,to)),
       db.from("product_requests").select("id,user_id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
       db.from("store_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
     ]);
-    const error = brandsResult.error || chainsResult.error || productsResult.error || productRequestsResult.error || storeRequestsResult.error;
+    const error = brandsResult.error || chainsResult.error || productRequestsResult.error || storeRequestsResult.error;
     if (error) throw error;
     const metadataRows=await readLatestCatalogMetadata(db,["store_provisional_brands","station_directory","railway_line_directory","railway_company_directory"]);
     const storeMetadata=new Map<string,{brandIds:string[];openingTime:string;closingTime:string;businessHours:StoreHours;customName:boolean;stationNames:string[]}>();
@@ -81,8 +82,6 @@ export async function GET() {
     for(const [stationName,metadata] of stationMetadata)if(metadata.isActive)for(const lineName of metadata.lineNames){const members=lineMembers.get(lineName)??[];if(!members.includes(stationName))members.push(stationName);lineMembers.set(lineName,members)}
     const railwayLineNames=new Set([...railwayLineMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const name of lineMembers.keys())railwayLineNames.add(name);
     const railwayCompanyNames=new Set([...railwayCompanyMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const metadata of railwayLineMetadata.values())if(metadata.isActive)for(const company of metadata.companies)railwayCompanyNames.add(company);
-    type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
-    const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
     const requestStoreNames=new Map(storeRows.map(store=>[store.id,[store.chain_name,store.name].filter(Boolean).join(" ")]));
     return NextResponse.json({
       ok: true,

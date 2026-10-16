@@ -8,6 +8,7 @@ type Chain = { name: string; storeType: string };
 type Product = { brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; variants?: { name: string; colorCode?: string; janCode?: string }[] };
 type Store = { name: string; chain?: string; type: string; address: string; latitude: number; longitude: number };
 type StoreRow = { id:string;name:string;chain_name:string|null;store_type:string;address:string;latitude:number;longitude:number };
+type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null }[] };
 
 async function requireAdmin() {
   return isAuthenticatedAdmin();
@@ -17,16 +18,14 @@ export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
     const db = createSupabaseAdminClient();
-    const [brandsResult, chainsResult, productsResult, storeRows] = await Promise.all([
+    const [brandsResult, chainsResult, productRows, storeRows] = await Promise.all([
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
-      db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,brands(name),product_variants(id,variant_name,color_code,jan_code)").eq("is_active", true).order("name").order("created_at", { referencedTable: "product_variants" }),
+      fetchAllSupabaseRows<ProductRow>((from,to)=>db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,brands(name),product_variants(id,variant_name,color_code,jan_code)").eq("is_active", true).order("name").order("id").order("created_at", { referencedTable: "product_variants" }).range(from,to)),
       fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("is_active", true).order("name").order("id").range(from,to)),
     ]);
-    const error = brandsResult.error || chainsResult.error || productsResult.error;
+    const error = brandsResult.error || chainsResult.error;
     if (error) throw error;
-    type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null }[] };
-    const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
     return NextResponse.json({
       ok: true,
       brands: (brandsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, nameKana: row.name_kana ?? "" })),
