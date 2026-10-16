@@ -3,10 +3,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatStoreName } from "@/lib/store-name";
 import { readCurrentLocation, saveCurrentLocation } from "@/lib/current-location";
+import { AuthenticatedOnly } from "./authenticated-only";
 
 export type ProductMapStore = { id:string;name:string;chain:string;customName?:boolean;address:string;latitude:number;longitude:number;reportStatus:"available"|"unavailable"|"unreported";lastReportedAt:string|null };
 
-export function ProductDetailMap({ stores }: { stores: ProductMapStore[] }) {
+export function ProductDetailMap({ stores, productId }: { stores: ProductMapStore[]; productId: string }) {
   const container = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState("");
   const selected = stores.find((store) => store.id === selectedId);
@@ -33,5 +34,5 @@ export function ProductDetailMap({ stores }: { stores: ProductMapStore[] }) {
     return () => { disposed = true; if(watchId!==undefined)navigator.geolocation.clearWatch(watchId);currentMarker?.remove();markers.forEach((marker) => marker.remove());map?.remove(); };
   }, [stores]);
   const selectedLabel = selected?.reportStatus === "available" ? "✓ あったよ！" : selected?.reportStatus === "unavailable" ? "× なかった" : "− まだ情報なし";
-  return <div className="product-map-shell"><div ref={container} className="product-detail-map" aria-label="この商品が見つかった店舗の地図"/><div className="product-map-legend"><span><i className="available-pin"/>✓ あったよ！</span><span><i className="unavailable-pin"/>× なかった</span><span><i className="no-report-pin"/>− まだ情報なし</span></div>{selected&&<article className={`product-map-card ${selected.reportStatus}`}><button type="button" onClick={() => setSelectedId("")} aria-label="閉じる">×</button><small>{selectedLabel}</small><h3>{formatStoreName(selected)}</h3><p>{selected.address}</p>{selected.lastReportedAt&&<b>最終情報提供：{new Date(selected.lastReportedAt).toLocaleDateString("ja-JP")}</b>}<Link href={`/stores/${selected.id}`}>店舗詳細を見る</Link></article>}</div>;
+  return <div className="product-map-shell"><div ref={container} className="product-detail-map" aria-label="この商品が見つかった店舗の地図"/><div className="product-map-legend"><span><i className="available-pin"/>✓ あったよ！</span><span><i className="unavailable-pin"/>× なかった</span><span><i className="no-report-pin"/>− まだ情報なし</span></div>{selected&&<article className={`product-map-card ${selected.reportStatus}`}><button type="button" onClick={() => setSelectedId("")} aria-label="閉じる">×</button><small>{selectedLabel}</small><h3>{formatStoreName(selected)}</h3><p>{selected.address}</p>{selected.lastReportedAt&&<b>最終情報提供：{new Date(selected.lastReportedAt).toLocaleDateString("ja-JP")}</b>}<div className="product-map-card-actions"><Link className="store-detail-link" href={`/stores/${selected.id}`}>店舗詳細を見る</Link><AuthenticatedOnly><Link className="stock-report-link" href={`/report?store=${encodeURIComponent(selected.id)}&product=${encodeURIComponent(productId)}`}>この店舗で在庫状況を報告</Link></AuthenticatedOnly></div></article>}</div>;
 }
