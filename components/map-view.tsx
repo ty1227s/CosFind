@@ -32,6 +32,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
   const legendTimerRef = useRef<number | undefined>(undefined);
   const currentPositionRef = useRef<[number, number] | null>(null);
   const fittedStoresRef = useRef("");
+  const selectedStoreRef = useRef(selected);
   const onSelectRef = useRef(onSelect);
   const onVisibleStoresChangeRef = useRef(onVisibleStoresChange);
   const onCurrentLocationChangeRef = useRef(onCurrentLocationChange);
@@ -42,6 +43,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
   const [legendOpen, setLegendOpen] = useState(false);
   const [legendClosing, setLegendClosing] = useState(false);
 
+  useEffect(() => { selectedStoreRef.current = selected; }, [selected]);
   useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
   useEffect(() => { onVisibleStoresChangeRef.current = onVisibleStoresChange; }, [onVisibleStoresChange]);
   useEffect(() => { onCurrentLocationChangeRef.current = onCurrentLocationChange; }, [onCurrentLocationChange]);
@@ -154,9 +156,9 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     const visibleSet = new Set(markerStoreIds);
     const storesWithPins = stores.filter((store) => visibleSet.has(store.id));
     let cancelled = false;
-    void import("maplibre-gl").then((maplibre) => { if (cancelled || !mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const storeName = formatStoreName(store); element.type = "button"; element.dataset.storeId = store.id; element.className = "map-pin"; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.setAttribute("aria-label", `${storeName}、${store.type}`); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => selectStore(store); return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
+    void import("maplibre-gl").then((maplibre) => { if (cancelled || !mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const storeName = formatStoreName(store); const active = store.id === selectedStoreRef.current; element.type = "button"; element.dataset.storeId = store.id; element.className = `map-pin${active ? " active" : ""}`; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.style.zIndex = active ? "1000" : "1"; element.setAttribute("aria-label", `${storeName}、${store.type}`); element.setAttribute("aria-pressed", String(active)); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => selectStore(store); return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
     return () => { cancelled = true; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; };
-  }, [mapReady, selected, selectStore, stores, visibleStoreIds]);
+  }, [mapReady, selectStore, stores, visibleStoreIds]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -190,7 +192,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     };
   }, [mapReady, stores]);
 
-  useEffect(() => { container.current?.querySelectorAll<HTMLElement>(".map-pin").forEach((pin) => { const active = pin.dataset.storeId === selected; pin.classList.toggle("active", active); pin.style.zIndex=active?"1000":"1"; }); }, [selected, visibleStoreIds]);
+  useEffect(() => { container.current?.querySelectorAll<HTMLElement>(".map-pin").forEach((pin) => { const active = pin.dataset.storeId === selected; pin.classList.toggle("active", active); pin.setAttribute("aria-pressed", String(active)); pin.style.zIndex=active?"1000":"1"; }); }, [selected, visibleStoreIds]);
   function centerCurrentLocation() { const position = currentPositionRef.current; if (position) mapRef.current?.easeTo({ center: position, zoom: 15, duration: 700 }); }
 
   return <><div ref={container} className="map" aria-label="在庫報告店舗地図"/><button type="button" className="current-location-button" onClick={centerCurrentLocation} disabled={locationState !== "visible"} title={locationState === "denied" ? "位置情報を利用できません" : "現在地を中心に表示"}>◎ <span>{locationState === "loading" ? "現在地を取得中" : locationState === "denied" ? "現在地を利用できません" : "現在地"}</span></button><button type="button" className="map-legend-button" onClick={() => setLegendOpen(true)}>凡例</button>{visibleStoreCount > 100 && <div className="map-density-warning" role="status"><b>地図を拡大してください</b></div>}{legendOpen && createPortal(<div className={`map-legend-layer${legendClosing ? " is-closing" : ""}`}><button type="button" className="map-legend-backdrop" aria-label="凡例を閉じる" onClick={closeLegend}/><section className="map-legend-dialog" role="dialog" aria-modal="true" aria-labelledby="map-legend-title"><button type="button" className="map-legend-close" aria-label="凡例を閉じる" onClick={closeLegend}>×</button><p>MAP GUIDE</p><h2 id="map-legend-title">凡例</h2><div>{STORE_TYPE_LEGEND.map((type) => { const color = getStoreTypeColor(type); const code = getStoreTypeCode(type); return <span key={type}><i className="legend-store-code" style={{ backgroundColor: color.background, color: color.foreground }}>{code}</i><b>{type}</b></span>; })}</div></section></div>, document.body)}</>;

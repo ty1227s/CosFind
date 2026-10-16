@@ -747,3 +747,36 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
 .area-directory-page{
   background:#fff;
 }
+
+/* Keep the marker anchor fixed while making the selected store unmistakable. */
+.map-pin.active::before{
+  content:"選択中";
+  display:block;
+  position:absolute;
+  z-index:3;
+  top:-20px;
+  left:50%;
+  transform:translateX(-50%);
+  min-width:max-content;
+  padding:3px 7px;
+  border:2px solid #fff;
+  border-radius:999px;
+  background:#25222a;
+  color:#fff;
+  box-shadow:0 3px 10px rgba(37,34,42,.28);
+  font-size:11px;
+  font-weight:700;
+  line-height:1.2;
+  pointer-events:none;
+}
+.map-pin.active>svg{
+  position:relative;
+  z-index:2;
+  transform:scale(1.16);
+  transform-origin:50% 100%;
+  filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 5px #d51c82) drop-shadow(0 7px 6px rgba(37,34,42,.34));
+}
+.map-pin.active .store-pin-body{
+  stroke:#fff;
+  stroke-width:4;
+}
