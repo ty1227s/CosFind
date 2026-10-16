@@ -234,7 +234,16 @@ export async function DELETE(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "不正なリクエストです" }, { status: 403 });
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
-    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store }; const db = createSupabaseAdminClient(); let result;
+    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store | RailwayCompany }; const db = createSupabaseAdminClient(); let result;
+    if (body.entity === "railwayCompany") {
+      const companyName=(body.data as RailwayCompany).name.replace(/[\s　]+/g," ").trim().slice(0,80);if(!companyName)return NextResponse.json({error:"削除する鉄道会社を確認できませんでした"},{status:400});
+      const authUser=await getAuthenticatedUser();let ownerId=authUser?.id||"";if(!ownerId){const fallback=await db.from("profiles").select("id").order("created_at",{ascending:true}).limit(1).maybeSingle();if(fallback.error||!fallback.data)throw fallback.error||new Error("鉄道会社情報を削除できるプロフィールがありません");ownerId=fallback.data.id}
+      const metadataRows=await readLatestCatalogMetadata(db,["railway_line_directory"],true);
+      const replacements:{user_id:string;status:"metadata";payload:Record<string,unknown>}[]=metadataRows.flatMap(item=>{const payload=item.payload&&typeof item.payload==="object"&&!Array.isArray(item.payload)?item.payload as Record<string,unknown>:{};if(payload.isActive===false||payload.metadataType!=="railway_line_directory"||typeof payload.lineName!=="string")return[];const companies=Array.isArray(payload.companies)?payload.companies.filter((name):name is string=>typeof name==="string"):typeof payload.company==="string"?[payload.company]:[];if(!companies.includes(companyName))return[];return[{user_id:item.user_id??ownerId,status:"metadata" as const,payload:{...payload,companies:companies.filter(name=>name!==companyName),company:null}}]});
+      replacements.push({user_id:ownerId,status:"metadata",payload:{metadataType:"railway_company_directory",companyName,regions:[],isActive:false}});
+      const retired=await db.from("store_requests").insert(replacements);if(retired.error)throw retired.error;
+      return NextResponse.json({ok:true,updatedLines:replacements.length-1});
+    }
     if (body.entity === "brand") result = await db.from("brands").delete().eq("name", (body.data as Brand).name);
     else if (body.entity === "chain") result = await db.from("store_chains").delete().eq("name", (body.data as Chain).name);
     else if (body.entity === "store") { const row = body.data as Store; result = await db.from("stores").delete().eq("name", row.name).eq("address", row.address); }
