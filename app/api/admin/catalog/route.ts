@@ -38,7 +38,7 @@ export async function GET() {
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
       db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name").order("created_at", { referencedTable: "product_variants" }),
-      fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name").range(from,to)),
+      fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name").order("id").range(from,to)),
       db.from("product_requests").select("id,user_id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
       db.from("store_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
     ]);

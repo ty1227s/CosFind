@@ -16,7 +16,7 @@ export async function loadPage({ params }: { params: Promise<{ id: string }> }){
   const product = productResult.data as unknown as ProductRow; const brand = Array.isArray(product.brands) ? product.brands[0] ?? null : product.brands;
   const [reportsResult, allStores, mapReportsResult, metadataResult] = await Promise.all([
     db.from("stock_reports").select("store_id,reported_at,stores(id,name,chain_name,address)").eq("product_id", id).eq("status", "available").order("reported_at", { ascending: false }).limit(50),
-    fetchAllSupabaseRows<StoreRow>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,name,chain_name,address,latitude,longitude,opening_date,closing_date").eq("is_active", true)).order("name").range(from,to)),
+    fetchAllSupabaseRows<StoreRow>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,name,chain_name,address,latitude,longitude,opening_date,closing_date").eq("is_active", true)).order("name").order("id").range(from,to)),
     db.from("stock_reports").select("store_id,status,reported_at").eq("product_id", id).order("reported_at", { ascending: false }).limit(10000),
     db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }),
   ]);

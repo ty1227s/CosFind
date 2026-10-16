@@ -14,6 +14,7 @@ export async function GET(request: Request) {
   const requestedOffset = Number(new URL(request.url).searchParams.get("offset") ?? "0");
   const offset = Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0;
   url.searchParams.set("select", "id,name,chain_name,store_type,address,latitude,longitude,created_at,opening_date,closing_date");
+  url.searchParams.set("order", "id.asc");
   url.searchParams.set("offset", String(offset));
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("is_active", "eq.true");

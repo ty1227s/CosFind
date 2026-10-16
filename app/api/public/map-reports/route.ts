@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   const requestedOffset = Number(new URL(request.url).searchParams.get("offset") ?? "0");
   const offset = Number.isSafeInteger(requestedOffset) && requestedOffset >= 0 ? requestedOffset : 0;
   url.searchParams.set("select", "store_id,last_reported_at,report_count");
+  url.searchParams.set("order", "store_id.asc,product_id.asc");
   url.searchParams.set("offset", String(offset));
   url.searchParams.set("limit", String(PAGE_SIZE));
   const upstream = await fetch(url, {

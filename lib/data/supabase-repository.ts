@@ -32,7 +32,7 @@ export const supabaseRepository:CatalogRepository={
   const db=createSupabaseBrowserClient();
   const[{data:reports,error:reportError},storeRows]=await Promise.all([
    db.from("public_stock_summaries").select("store_id,last_reported_at,confirmed_variants,report_count").eq("product_id",productId),
-   fetchAllSupabaseRows<StoreRow>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,created_at,opening_date,closing_date").eq("is_active",true)).range(from,to)),
+   fetchAllSupabaseRows<StoreRow>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,created_at,opening_date,closing_date").eq("is_active",true)).order("id").range(from,to)),
   ]);
   if(reportError)throw reportError;
   const reportByStore=new Map((reports??[]).map(report=>[report.store_id,report]));

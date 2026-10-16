@@ -21,7 +21,7 @@ export async function GET() {
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
       db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,brands(name),product_variants(id,variant_name,color_code,jan_code)").eq("is_active", true).order("name").order("created_at", { referencedTable: "product_variants" }),
-      fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("is_active", true).order("name").range(from,to)),
+      fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("is_active", true).order("name").order("id").range(from,to)),
     ]);
     const error = brandsResult.error || chainsResult.error || productsResult.error;
     if (error) throw error;

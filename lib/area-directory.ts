@@ -87,7 +87,7 @@ const loadAreaDirectory = timedCache(async (): Promise<PrefectureDirectory[]> =>
         .from("stores")
         .select("id,name,chain_name,store_type,address,latitude,longitude")
         .eq("is_active", true),
-    ).range(from,to)),
+    ).order("id").range(from,to)),
     getDirectoryMetadataRows(),
   ]);
 
@@ -255,7 +255,7 @@ export const getRailwayCompanyDirectory = cache(loadRailwayCompanyDirectory);
 const loadDirectorySitemapEntries = timedCache(async () => {
   const db = createSupabaseAdminClient();
   const [storeRows, metadataRows] = await Promise.all([
-    fetchAllSupabaseRows<Pick<StoreRow,"id"|"address">>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,address").eq("is_active", true)).range(from,to)),
+    fetchAllSupabaseRows<Pick<StoreRow,"id"|"address">>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,address").eq("is_active", true)).order("id").range(from,to)),
     getDirectoryMetadataRows(),
   ]);
 
