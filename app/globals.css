@@ -748,6 +748,38 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
   background:#fff;
 }
 
+/* Numeric counts use Century Gothic; Japanese unit labels use the fallback font. */
+.list-head span,
+.product-search-result-head b,
+.product-search-list-row>span:nth-child(3),
+.store-product-filters>small,
+.history-count,
+.profile-stats b,
+.profile-favorite-links b,
+.favorite-summary b,
+.favorite-management-section h2 b,
+.favorite-management-section h2 small,
+.product-additional-category-head span,
+.brand-checkbox-editor span,
+.admin-filters>small,
+.admin-pagination span,
+.brand-cols>span:nth-child(3),
+.chain-cols>span:nth-child(3),
+.station-cols>span:nth-child(3),
+.user-cols>span:nth-child(3),
+.user-cols>span:nth-child(4),
+.location-select select,
+.area-directory-hero dd,
+.area-prefecture-grid strong,
+.area-municipality-grid>a>span:last-child,
+.station-directory-grid>a>span:not(.station-directory-name),
+.railway-station-sequence small,
+.brand-initial-groups small,
+.brand-index-results>div>span,
+.new-cosmetics-group-head>small{
+  font-family:var(--font-century-gothic);
+}
+
 /* Selected pins keep their position and switch the usual white border to black. */
 .map-pin.active .store-pin-body{
   stroke:#25222a;
