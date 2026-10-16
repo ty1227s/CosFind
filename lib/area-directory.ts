@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
 import { isRailwayRegion } from "@/lib/railway-regions";
 import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 
 type MunicipalitySource = Record<string, string[]>;
 type StoreRow = {
@@ -80,17 +81,15 @@ function identifyArea(address: string) {
 
 const loadAreaDirectory = timedCache(async (): Promise<PrefectureDirectory[]> => {
   const db = createSupabaseAdminClient();
-  const storeQuery = operatingPeriodQuery(
-    db
-      .from("stores")
-      .select("id,name,chain_name,store_type,address,latitude,longitude")
-      .eq("is_active", true),
-  );
-  const [storeResult, metadataRows] = await Promise.all([
-    storeQuery,
+  const [storeRows, metadataRows] = await Promise.all([
+    fetchAllSupabaseRows<StoreRow>((from,to)=>operatingPeriodQuery(
+      db
+        .from("stores")
+        .select("id,name,chain_name,store_type,address,latitude,longitude")
+        .eq("is_active", true),
+    ).range(from,to)),
     getDirectoryMetadataRows(),
   ]);
-  if (storeResult.error) throw new Error(`地域別店舗情報の取得に失敗しました: ${storeResult.error.message}`);
 
   const customNames = new Map<string, boolean>();
   const stationNames = new Map<string, string[]>();
@@ -106,7 +105,7 @@ const loadAreaDirectory = timedCache(async (): Promise<PrefectureDirectory[]> =>
   }
 
   const groups = new Map<string, Map<string, AreaStore[]>>();
-  for (const row of (storeResult.data ?? []) as StoreRow[]) {
+  for (const row of storeRows) {
     const area = identifyArea(row.address || "");
     if (!area) continue;
     const prefectureGroup = groups.get(area.prefecture) ?? new Map<string, AreaStore[]>();
@@ -255,13 +254,14 @@ export const getRailwayCompanyDirectory = cache(loadRailwayCompanyDirectory);
 
 const loadDirectorySitemapEntries = timedCache(async () => {
   const db = createSupabaseAdminClient();
-  const storeQuery = operatingPeriodQuery(db.from("stores").select("id,address").eq("is_active", true));
-  const [storeResult, metadataRows] = await Promise.all([storeQuery, getDirectoryMetadataRows()]);
-  if (storeResult.error) throw new Error(`サイトマップ用店舗情報の取得に失敗しました: ${storeResult.error.message}`);
+  const [storeRows, metadataRows] = await Promise.all([
+    fetchAllSupabaseRows<Pick<StoreRow,"id"|"address">>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,address").eq("is_active", true)).range(from,to)),
+    getDirectoryMetadataRows(),
+  ]);
 
   const areaKeys = new Set<string>();
   const storeIds: string[] = [];
-  for (const store of storeResult.data ?? []) {
+  for (const store of storeRows) {
     storeIds.push(store.id);
     const area = identifyArea(store.address || "");
     if (area) areaKeys.add(`${area.prefecture}\u0000${area.municipality}`);

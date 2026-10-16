@@ -7,6 +7,7 @@ import { isPrefecture } from "@/lib/prefectures";
 import municipalitySource from "@/lib/municipalities.generated.json";
 import { isRailwayRegion } from "@/lib/railway-regions";
 import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 
 type Entity = "brand" | "chain" | "product" | "store" | "station" | "railwayLine" | "railwayCompany";
 type Brand = { name: string; nameKana?: string };
@@ -17,6 +18,7 @@ type Store = { id?: string; name: string; chain?: string; type: string; address:
 type Station = { name: string; prefecture?: string; municipality?: string; lineNames?: string[] };
 type RailwayLine = { name: string; companies?: string[]; company?: string; stationNames?: string[]; visualType?: "image" | "color"; imageUrl?: string; lineColor?: string };
 type RailwayCompany = { name: string; regions?: string[] };
+type StoreRow = { id:string;name:string;chain_name:string|null;store_type:string;address:string;latitude:number;longitude:number;opening_date:string|null;closing_date:string|null;created_at:string };
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
@@ -32,15 +34,15 @@ export async function GET() {
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
     const db = createSupabaseAdminClient();
-    const [brandsResult, chainsResult, productsResult, storesResult, productRequestsResult, storeRequestsResult] = await Promise.all([
+    const [brandsResult, chainsResult, productsResult, storeRows, productRequestsResult, storeRequestsResult] = await Promise.all([
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
       db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name").order("created_at", { referencedTable: "product_variants" }),
-      db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name"),
+      fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name").range(from,to)),
       db.from("product_requests").select("id,user_id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
       db.from("store_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
     ]);
-    const error = brandsResult.error || chainsResult.error || productsResult.error || storesResult.error || productRequestsResult.error || storeRequestsResult.error;
+    const error = brandsResult.error || chainsResult.error || productsResult.error || productRequestsResult.error || storeRequestsResult.error;
     if (error) throw error;
     const metadataRows=await readLatestCatalogMetadata(db,["store_provisional_brands","station_directory","railway_line_directory","railway_company_directory"]);
     const storeMetadata=new Map<string,{brandIds:string[];openingTime:string;closingTime:string;businessHours:StoreHours;customName:boolean;stationNames:string[]}>();
@@ -81,13 +83,13 @@ export async function GET() {
     const railwayCompanyNames=new Set([...railwayCompanyMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const metadata of railwayLineMetadata.values())if(metadata.isActive)for(const company of metadata.companies)railwayCompanyNames.add(company);
     type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
     const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
-    const requestStoreNames=new Map((storesResult.data??[]).map(store=>[store.id,[store.chain_name,store.name].filter(Boolean).join(" ")]));
+    const requestStoreNames=new Map(storeRows.map(store=>[store.id,[store.chain_name,store.name].filter(Boolean).join(" ")]));
     return NextResponse.json({
       ok: true,
       brands: (brandsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, nameKana: row.name_kana ?? "" })),
       chains: (chainsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, storeType: row.store_type })),
       products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name === variant.color_code ? "" : variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })) })),
-      stores: (storesResult.data ?? []).map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,stationNames:metadata?.stationNames??[],createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
+      stores: storeRows.map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,stationNames:metadata?.stationNames??[],createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
       stations: [...stationMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name,metadata])=>({name,prefecture:metadata.prefecture,municipality:metadata.municipality,lineNames:metadata.lineNames})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       railwayLines: [...railwayLineNames].map(name=>{const members=lineMembers.get(name)??[];const configured=railwayLineMetadata.get(name);const preferred=configured?.stationNames??[];return{name,companies:configured?.companies??[],visualType:configured?.visualType??"color",imageUrl:configured?.imageUrl??"",lineColor:configured?.lineColor??"",stationNames:[...preferred.filter(station=>members.includes(station)),...members.filter(station=>!preferred.includes(station)).sort((left,right)=>left.localeCompare(right,"ja"))]}}).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       railwayCompanies: [...railwayCompanyNames].map(name=>({name,regions:railwayCompanyMetadata.get(name)?.regions??[]})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),

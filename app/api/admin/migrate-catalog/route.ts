@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isAuthenticatedAdmin, isSameOrigin } from "@/lib/server/security";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 
 type Brand = { name: string; nameKana?: string };
 type Chain = { name: string; storeType: string };
 type Product = { brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; variants?: { name: string; colorCode?: string; janCode?: string }[] };
 type Store = { name: string; chain?: string; type: string; address: string; latitude: number; longitude: number };
+type StoreRow = { id:string;name:string;chain_name:string|null;store_type:string;address:string;latitude:number;longitude:number };
 
 async function requireAdmin() {
   return isAuthenticatedAdmin();
@@ -15,13 +17,13 @@ export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
     const db = createSupabaseAdminClient();
-    const [brandsResult, chainsResult, productsResult, storesResult] = await Promise.all([
+    const [brandsResult, chainsResult, productsResult, storeRows] = await Promise.all([
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
       db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,brands(name),product_variants(id,variant_name,color_code,jan_code)").eq("is_active", true).order("name").order("created_at", { referencedTable: "product_variants" }),
-      db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("is_active", true).order("name"),
+      fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude").eq("is_active", true).order("name").range(from,to)),
     ]);
-    const error = brandsResult.error || chainsResult.error || productsResult.error || storesResult.error;
+    const error = brandsResult.error || chainsResult.error || productsResult.error;
     if (error) throw error;
     type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null }[] };
     const productRows = (productsResult.data ?? []) as unknown as ProductRow[];
@@ -30,7 +32,7 @@ export async function GET() {
       brands: (brandsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, nameKana: row.name_kana ?? "" })),
       chains: (chainsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, storeType: row.store_type })),
       products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "" })) })),
-      stores: (storesResult.data ?? []).map((row) => ({ id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude })),
+      stores: storeRows.map((row) => ({ id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude })),
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabaseからの読み込みに失敗しました" }, { status: 500 });
