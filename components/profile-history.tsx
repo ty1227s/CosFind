@@ -18,7 +18,7 @@ const tabs: Record<HistoryKind, { label: string; href: string; eyebrow: string; 
 };
 
 const statusLabels: Record<string, string> = {
-  available: "在庫あり", low_stock: "残りわずか", sold_out: "商品なし", unknown: "不明", discontinued: "取扱終了",
+  available: "あったよ！", low_stock: "残りわずか", sold_out: "なかった", unknown: "不明", discontinued: "取扱終了",
   pending: "確認待ち", approved: "承認済み", rejected: "却下",
 };
 const methodLabels: Record<string, string> = { store_visit: "店頭で確認", staff_confirmation: "店員に確認", phone: "電話で確認", official_information: "公式情報" };
@@ -98,7 +98,7 @@ function RequestRow({ item, kind }: { item: Record<string, unknown>; kind: "prod
   const name = text(payload.name) || (kind === "products" ? "商品名なし" : "店舗名なし");
   return <article className="history-row">
     <div className="history-row-main"><span className={`history-status status-${text(item.status)}`}>{statusLabels[text(item.status)] || text(item.status)}</span><h2>{name}</h2>{kind === "products" ? <div className="history-product-meta"><span>{text(payload.brand)}</span><ProductCategoryBadges categories={[text(payload.category)]}/></div> : <p>{[text(payload.chain), text(payload.type)].filter(Boolean).join(" / ") || "個店"}</p>}</div>
-    <dl>{kind === "products" ? <><div><dt>カラー</dt><dd>{[text(payload.colorCode), text(payload.variantName)].filter(Boolean).join(" ") || "—"}</dd></div><div><dt>JANコード</dt><dd>{text(payload.janCode) || "—"}</dd></div><div><dt>PA</dt><dd>{text(payload.pa) || "未設定"}</dd></div>{text(payload.reportStoreId)&&<div><dt>発見情報</dt><dd>商品承認後に在庫報告へ反映</dd></div>}</> : <div><dt>住所</dt><dd>{text(payload.address) || "未入力"}</dd></div>}<div><dt>申請日時</dt><dd>{formatDate(item.created_at)}</dd></div></dl>
+    <dl>{kind === "products" ? <><div><dt>カラー</dt><dd>{[text(payload.colorCode), text(payload.variantName)].filter(Boolean).join(" ") || "—"}</dd></div><div><dt>JANコード</dt><dd>{text(payload.janCode) || "—"}</dd></div><div><dt>PA</dt><dd>{text(payload.pa) || "未設定"}</dd></div>{text(payload.reportStoreId)&&<div><dt>在庫状況</dt><dd>商品承認後に「{text(payload.reportStatus)==="sold_out"?"なかった":"あったよ！"}」として反映</dd></div>}</> : <div><dt>住所</dt><dd>{text(payload.address) || "未入力"}</dd></div>}<div><dt>申請日時</dt><dd>{formatDate(item.created_at)}</dd></div></dl>
   </article>;
 }
 

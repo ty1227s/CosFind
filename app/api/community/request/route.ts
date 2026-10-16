@@ -10,6 +10,7 @@ import { operatingPeriodQuery } from "@/lib/store-operating-period";
 const PRODUCT_CATEGORIES = new Set<string>(PRODUCT_CATEGORY_GROUPS.flatMap((group) => group.categories));
 const STORE_TYPE_SET = new Set<string>(STORE_TYPES);
 const REPORT_METHODS = new Set(["store_visit", "staff_confirmation", "phone", "official_information"]);
+const REPORT_STATUSES = new Set(["available", "sold_out"]);
 
 function sanitizeProduct(payload: Record<string, unknown>) {
   const brand = text(payload.brand, 100);
@@ -22,11 +23,12 @@ function sanitizeProduct(payload: Record<string, unknown>) {
   const pa = typeof payload.pa === "string" && ["", "+", "++", "+++", "++++"].includes(payload.pa) ? payload.pa : null;
   const reportStoreId = text(payload.reportStoreId, 64);
   const reportMethod = text(payload.reportMethod, 50);
+  const reportStatus = text(payload.reportStatus, 20);
   const reportComment = text(payload.reportComment, 200);
-  const hasReport = Boolean(reportStoreId || reportMethod || reportComment);
+  const hasReport = Boolean(reportStoreId || reportStatus || reportMethod || reportComment);
   if (!brand || !name || !category || !PRODUCT_CATEGORIES.has(category) || janCode === null || variantName === null || colorCode === null || variantJanCode === null || pa === null) return null;
-  if (hasReport && (!reportStoreId || !UUID_PATTERN.test(reportStoreId) || !reportMethod || !REPORT_METHODS.has(reportMethod) || reportComment === null)) return null;
-  return { brand, name, category, janCode, variantName, colorCode, variantJanCode, pa, ...(hasReport ? { reportStoreId, reportMethod, reportComment: reportComment || "", reportReportedAt: new Date().toISOString() } : {}) };
+  if (hasReport && (!reportStoreId || !UUID_PATTERN.test(reportStoreId) || !reportStatus || !REPORT_STATUSES.has(reportStatus) || !reportMethod || !REPORT_METHODS.has(reportMethod) || reportComment === null)) return null;
+  return { brand, name, category, janCode, variantName, colorCode, variantJanCode, pa, ...(hasReport ? { reportStoreId, reportStatus, reportMethod, reportComment: reportComment || "", reportReportedAt: new Date().toISOString() } : {}) };
 }
 
 function sanitizeStore(payload: Record<string, unknown>) {

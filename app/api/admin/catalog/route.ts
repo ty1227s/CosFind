@@ -259,14 +259,14 @@ export async function PATCH(request: Request) {
   if (!result.data) return NextResponse.json({ error: "審査待ちの申請が見つかりません" }, { status: 404 });
   if(body.kind==="product"&&body.status==="approved"){
     const payload=pending.data.payload&&typeof pending.data.payload==="object"&&!Array.isArray(pending.data.payload)?pending.data.payload as Record<string,unknown>:{};
-    const storeId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";const method=typeof payload.reportMethod==="string"?payload.reportMethod:"";
+    const storeId=typeof payload.reportStoreId==="string"?payload.reportStoreId:"";const method=typeof payload.reportMethod==="string"?payload.reportMethod:"";const reportStatus=payload.reportStatus==="sold_out"?"sold_out":"available";
     if(storeId){
       const methods=new Set(["store_visit","staff_confirmation","phone","official_information"]);
       if(!body.productId||!UUID_PATTERN.test(body.productId)||(body.productVariantId!=null&&!UUID_PATTERN.test(body.productVariantId))||!UUID_PATTERN.test(storeId)||!methods.has(method)){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告へ反映する商品・店舗を確認できませんでした"},{status:400});}
       const [product,variant,store]=await Promise.all([db.from("products").select("id").eq("id",body.productId).eq("is_active",true).maybeSingle(),body.productVariantId?db.from("product_variants").select("id").eq("id",body.productVariantId).eq("product_id",body.productId).maybeSingle():Promise.resolve({data:null,error:null}),operatingPeriodQuery(db.from("stores").select("id").eq("id",storeId).eq("is_active",true)).maybeSingle()]);
       if(product.error||variant.error||store.error||!product.data||(body.productVariantId&&!variant.data)||!store.data){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"在庫報告の対象を確認できませんでした"},{status:400});}
       const comment=typeof payload.reportComment==="string"?payload.reportComment.slice(0,200)||null:null;const reportedAt=typeof payload.reportReportedAt==="string"&&!Number.isNaN(Date.parse(payload.reportReportedAt))?payload.reportReportedAt:pending.data.created_at;
-      const report=await db.from("stock_reports").insert({product_id:body.productId,product_variant_id:body.productVariantId||null,store_id:storeId,user_id:pending.data.user_id,status:"available",confirmation_method:method,comment,reported_at:reportedAt});
+      const report=await db.from("stock_reports").insert({product_id:body.productId,product_variant_id:body.productVariantId||null,store_id:storeId,user_id:pending.data.user_id,status:reportStatus,confirmation_method:method,comment,reported_at:reportedAt});
       if(report.error){await db.from(table).update({status:"pending"}).eq("id",body.id);return NextResponse.json({error:"商品は登録しましたが、在庫報告への反映に失敗しました。もう一度承認してください"},{status:500});}
     }
   }
