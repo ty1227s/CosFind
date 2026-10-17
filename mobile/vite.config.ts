@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/postcss";
 const mobile=import.meta.dirname,root=resolve(mobile,"..");
 export default defineConfig(({mode})=>{
  const env={...loadEnv(mode,root,""),...loadEnv(mode,mobile,"")};
- const apiOrigin=process.env.VITE_API_ORIGIN||env.VITE_API_ORIGIN||"https://cosfind.ty1227s.workers.dev";
+ const apiOrigin=process.env.VITE_API_ORIGIN||env.VITE_API_ORIGIN||"https://cosfind.app";
  const sharedCss:Plugin={name:"cosfind-shared-css",enforce:"pre",async transform(code,id){if(id.replaceAll("\\","/")!==resolve(root,"app/globals.css").replaceAll("\\","/"))return null;return (await postcss([tailwindcss() as unknown as AcceptedPlugin]).process(code,{from:resolve(root,"app/globals.css")})).css;}};
  const forbidServer:Plugin={name:"cosfind-no-server-code",enforce:"pre",resolveId(id){if(id==="server-only"||id==="next/headers"||id==="next/server")throw new Error("Server-only module reached the Android bundle: "+id);return null;}};
  return {plugins:[forbidServer,sharedCss,react()],publicDir:resolve(root,"public"),resolve:{dedupe:["react","react-dom","maplibre-gl","@supabase/supabase-js"],alias:[

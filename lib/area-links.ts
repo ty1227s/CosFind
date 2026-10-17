@@ -20,4 +20,4 @@ export function decodeAreaSegment(segment: string) {
   }
 }
 
-export const publicSiteOrigin = (process.env.NEXT_PUBLIC_SITE_URL || "https://cosfind.ty1227s.workers.dev").replace(/\/$/, "");
+export const publicSiteOrigin = "https://cosfind.app";

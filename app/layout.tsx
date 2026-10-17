@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { PwaInstallManager } from "@/components/pwa-install-manager";
+import { publicSiteOrigin } from "@/lib/area-links";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://cosfind.ty1227s.workers.dev"),
+  metadataBase: new URL(publicSiteOrigin),
   title: "CosFind | 欲しいコスメ、どのお店にある？",
   description: "一般流通コスメの最近の在庫あり報告を、地図で探せる匿名共有サービス。",
   applicationName: "CosFind",
