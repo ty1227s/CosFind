@@ -780,6 +780,28 @@ html.navigation-menu-open .mobile-menu-drawer{overflow-y:auto;overscroll-behavio
   font-family:var(--font-century-gothic);
 }
 
+/* Product cards are fully clickable, so a repeated detail-call-to-action is unnecessary. */
+.product-search-list-row{
+  grid-template-columns:1.7fr .8fr 90px;
+}
+@media(max-width:700px){
+  .product-search-list-row{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+  .product-search-list-row>span:first-child{
+    grid-column:1/-1;
+  }
+  .product-search-list-row>.product-category-badges{
+    grid-column:1;
+    grid-row:2;
+  }
+  .product-search-list-row>span:nth-child(3){
+    grid-column:2;
+    grid-row:2;
+    align-self:center;
+  }
+}
+
 /* Selected pins keep their position and switch the usual white border to black. */
 .map-pin.active .store-pin-body{
   stroke:#25222a;

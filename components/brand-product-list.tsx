@@ -37,7 +37,6 @@ export function BrandProductList({ brand, products }: Pick<Model, "brand" | "pro
               <span><small>{brand.name}</small><b>{product.name}</b></span>
               <ProductCategoryBadges categories={[product.category, ...(product.additional_categories ?? [])]}/>
               <span>{Math.max(1, product.product_variants.length)}種</span>
-              <strong>詳細を見る <i>→</i></strong>
             </Link>)}
           </div> : <div className="product-search-empty">
             <span>○</span>
