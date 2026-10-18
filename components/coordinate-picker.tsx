@@ -45,6 +45,7 @@ export function CoordinatePicker({ initialLatitude = 35.6896, initialLongitude =
       marker.on("dragend", () => { const point = marker.getLngLat(); update(point.lng, point.lat); });
       map.on("click", (event) => { marker.setLngLat(event.lngLat); update(event.lngLat.lng, event.lngLat.lat); });
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+      map.addControl(new maplibre.ScaleControl({ maxWidth: 110, unit: "metric" }), "bottom-left");
       mapRef.current = map; markerRef.current = marker;
     });
     return () => { disposed = true; mapRef.current?.remove(); mapRef.current = null; markerRef.current = null; };

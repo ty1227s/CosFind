@@ -39,6 +39,7 @@ export function RequestCoordinatePicker({ address }: { address: string }) {
       maplibreRef.current = module;
       const map = new maplibre.Map({ container: container.current, center: [139.7006, 35.6896], zoom: 12, style: { version: 8, sources: { osm: { type: "raster", tiles: [process.env.NEXT_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } }, layers: [{ id: "osm", type: "raster", source: "osm" }] }, attributionControl: { compact: true } });
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+      map.addControl(new maplibre.ScaleControl({ maxWidth: 110, unit: "metric" }), "bottom-left");
       map.on("click", (event) => setPin(event.lngLat.lng, event.lngLat.lat));
       mapRef.current = map;
       const currentPosition = positionRef.current;

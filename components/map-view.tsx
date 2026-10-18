@@ -93,6 +93,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
       const savedView = readSavedMapView();
       const map = new maplibre.Map({ container: container.current, center: savedView ? [savedView.longitude, savedView.latitude] : [139.7006, 35.6896], zoom: savedView?.zoom ?? 13.5, style: { version: 8, sources: { osm: { type: "raster", tiles: [process.env.NEXT_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } }, layers: [{ id: "osm", type: "raster", source: "osm" }] }, attributionControl: { compact: true } });
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
+      map.addControl(new maplibre.ScaleControl({ maxWidth: 110, unit: "metric" }), "bottom-left");
       saveMapView = () => { const center = map.getCenter(); try { localStorage.setItem(MAP_VIEW_KEY, JSON.stringify({ longitude: center.lng, latitude: center.lat, zoom: map.getZoom() } satisfies SavedMapView)); } catch {} };
       map.on("moveend", saveMapView);
       map.on("zoomend", saveMapView);
