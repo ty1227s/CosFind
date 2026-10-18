@@ -24,9 +24,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const requestHeaders = await headers();
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
       <head>
-        <link rel="stylesheet" href="https://use.typekit.net/iqo1umm.css" />
+        <script nonce={nonce} src="/adobe-fonts.js" defer />
         <script
           async
           nonce={nonce}
