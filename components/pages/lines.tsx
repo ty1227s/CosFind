@@ -35,8 +35,8 @@ export function LinesView({ model }: { model: Model }) {
       <p className="directory-step-description">地域を選ぶと、その地域で運行している鉄道会社を表示します。</p>
       <div className="area-municipality-grid railway-region-directory-grid">{RAILWAY_REGIONS.map((region) => {
         const count = companyDirectory.filter((company) => company.regions.includes(region)).length;
-        return count > 0 ? <Link href={`/lines?region=${encodeURIComponent(region)}`} key={region}><b>{region}</b><span>{count}<small>社</small></span></Link> : null;
-      })}{unassignedCompanies.length > 0 && <Link href={`/lines?region=${UNASSIGNED_REGION}`}><b>地域未登録</b><span>{unassignedCompanies.length}<small>社</small></span></Link>}</div>
+        return count > 0 ? <Link href={`/lines?region=${encodeURIComponent(region)}`} key={region}><b>{region}</b></Link> : null;
+      })}{unassignedCompanies.length > 0 && <Link href={`/lines?region=${UNASSIGNED_REGION}`}><b>地域未登録</b></Link>}</div>
     </section> : <div className="area-empty"><b>路線はまだ登録されていません</b><p>管理画面で路線と駅順を登録すると、ここに自動表示されます。</p></div>}
   </main></>;
 }
