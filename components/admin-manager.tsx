@@ -24,6 +24,7 @@ import { RailwayCompanyEditor } from "./railway-company-editor";
 import { RailwayRegionEditor } from "./railway-region-editor";
 import { StationLocationEditor } from "./station-location-editor";
 import { PREFECTURES } from "@/lib/prefectures";
+import { addressIsInMunicipality, addressIsInPrefecture } from "@/lib/japanese-address";
 import { RAILWAY_REGIONS } from "@/lib/railway-regions";
 import { ProductCategoryBadges } from "./product-category-badge";
 
@@ -163,7 +164,7 @@ export function AdminManager() {
   const chainRows = useMemo(() => chains.filter((c) => `${c.name} ${c.storeType}`.toLowerCase().includes(q) && (!chainTypeFilter || c.storeType === chainTypeFilter)), [chains, q, chainTypeFilter]);
   const productRows = useMemo(() => sortByCreatedAt(products.filter((p) => `${p.brand} ${p.name} ${p.janCode} ${(p.additionalJanCodes??[]).join(" ")} ${p.variants.map((variant) => `${variant.name} ${variant.colorCode ?? ""}`).join(" ")}`.toLowerCase().includes(q) && (!productCategoryFilter || p.category === productCategoryFilter || (p.additionalCategories??[]).includes(productCategoryFilter)) && (!productBrandFilter || p.brand === productBrandFilter)), createdSort), [products, q, productCategoryFilter, productBrandFilter, createdSort]);
   const productCategories = PRODUCT_CATEGORIES;
-  const storeRows = useMemo(() => sortByCreatedAt(stores.filter((s) => `${s.name} ${s.chain} ${s.address} ${(s.stationNames??[]).join(" ")}`.toLowerCase().includes(q) && (!storeTypeFilter || s.type === storeTypeFilter) && (!storeChainFilter || s.chain === storeChainFilter) && (!prefecture || s.address.includes(prefecture)) && (!municipality || s.address.includes(municipality))), createdSort), [stores, q, storeTypeFilter, storeChainFilter, prefecture, municipality, createdSort]);
+  const storeRows = useMemo(() => sortByCreatedAt(stores.filter((s) => `${s.name} ${s.chain} ${s.address} ${(s.stationNames??[]).join(" ")}`.toLowerCase().includes(q) && (!storeTypeFilter || s.type === storeTypeFilter) && (!storeChainFilter || s.chain === storeChainFilter) && (!prefecture || addressIsInPrefecture(s.address, prefecture)) && (!municipality || addressIsInMunicipality(s.address, prefecture, municipality))), createdSort), [stores, q, storeTypeFilter, storeChainFilter, prefecture, municipality, createdSort]);
   const storeAddresses = useMemo(() => stores.map((store) => store.address), [stores]);
   const storeFilterChains = useMemo(() => storeTypeFilter ? chains.filter((chain) => chain.storeType === storeTypeFilter) : [], [chains, storeTypeFilter]);
   const userRows = useMemo(() => users.filter((user) => `${user.username} ${user.displayName} ${user.email} ${user.id}`.toLowerCase().includes(q)), [users, q]);

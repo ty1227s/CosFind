@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { addressIsInMunicipality, addressIsInPrefecture, prefectureFromAddress } from "@/lib/japanese-address";
 
 type LocationMap = Record<string, string[]>;
 let cachedLocations: LocationMap | null = null;
@@ -46,13 +47,13 @@ export function LocationSelect({ prefecture, municipality, onPrefectureChange, o
   const prefectureCounts = useMemo(() => {
     const counts = Object.fromEntries(prefectures.map((name) => [name, 0])) as Record<string, number>;
     for (const address of storeAddresses ?? []) {
-      const matched = prefectures.find((name) => address.includes(name));
+      const matched = prefectureFromAddress(address);
       if (matched) counts[matched] += 1;
     }
     return counts;
   }, [prefectures, storeAddresses]);
-  const municipalityCounts = useMemo(() => Object.fromEntries(municipalities.map((name) => [name, (storeAddresses ?? []).filter((address) => address.includes(prefecture) && address.includes(name)).length])), [municipalities, prefecture, storeAddresses]);
-  const prefectureStoreCount = useMemo(() => (storeAddresses ?? []).filter((address) => address.includes(prefecture)).length, [prefecture, storeAddresses]);
+  const municipalityCounts = useMemo(() => Object.fromEntries(municipalities.map((name) => [name, (storeAddresses ?? []).filter((address) => addressIsInMunicipality(address, prefecture, name)).length])), [municipalities, prefecture, storeAddresses]);
+  const prefectureStoreCount = useMemo(() => (storeAddresses ?? []).filter((address) => addressIsInPrefecture(address, prefecture)).length, [prefecture, storeAddresses]);
   return <div className={compact ? "location-select compact" : "location-select"}>
     <label><span>都道府県</span><select name={prefectureName} value={prefecture} required={selectionMode} onChange={(event) => { onPrefectureChange(event.target.value); onMunicipalityChange(""); }}><option value="">{selectionMode ? "都道府県を選択" : `すべての都道府県${storeAddresses ? `（${storeAddresses.length}）` : ""}`}</option>{prefectures.map((name) => <option key={name} value={name}>{name}{storeAddresses ? `（${prefectureCounts[name]}）` : ""}</option>)}</select></label>
     <label><span>市区町村</span><select name={municipalityName} value={municipality} required={selectionMode} disabled={!prefecture} onChange={(event) => onMunicipalityChange(event.target.value)}><option value="">{selectionMode ? (prefecture ? "市区町村を選択" : "先に都道府県を選択") : `すべての市区町村${storeAddresses ? `（${prefectureStoreCount}）` : ""}`}</option>{municipalities.map((name) => <option key={name} value={name}>{name}{storeAddresses ? `（${municipalityCounts[name]}）` : ""}</option>)}</select></label>

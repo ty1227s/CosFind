@@ -6,6 +6,7 @@ import { operatingPeriodQuery } from "@/lib/store-operating-period";
 import { isRailwayRegion } from "@/lib/railway-regions";
 import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
 import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
+import { normalizeJapaneseAddress, prefectureFromAddress } from "@/lib/japanese-address";
 
 type MunicipalitySource = Record<string, string[]>;
 type StoreRow = {
@@ -71,8 +72,8 @@ const municipalityCandidates = Object.fromEntries(
 ) as MunicipalitySource;
 
 function identifyArea(address: string) {
-  const normalized = address.replace(/[\s　]+/g, "").trim();
-  const prefecture = prefectureOrder.find((candidate) => normalized.startsWith(candidate));
+  const normalized = normalizeJapaneseAddress(address);
+  const prefecture = prefectureFromAddress(normalized);
   if (!prefecture) return null;
   const remainder = normalized.slice(prefecture.length);
   const municipality = municipalityCandidates[prefecture]?.find((candidate) => remainder.startsWith(candidate));
