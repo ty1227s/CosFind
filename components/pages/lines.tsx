@@ -16,7 +16,7 @@ export function LinesView({ model }: { model: Model }) {
     selectedRegionLabel
   } = model;
   return <><SiteHeader/><main className="area-directory-page">
-    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span><span>駅・路線から探す</span></nav>
+    <nav className="area-breadcrumb" aria-label="パンくずリスト"><Link href="/">ホーム</Link><span>›</span>{selectedRegion||selectedCompany?<Link href="/lines">駅・路線から探す</Link>:<span>駅・路線から探す</span>}{selectedRegion&&<><span>›</span>{selectedCompany?<Link href={`/lines?region=${encodeURIComponent(selectedRegion)}`}>{selectedRegionLabel}</Link>:<span>{selectedRegionLabel}</span>}</>}{selectedCompany&&<><span>›</span><span>{selectedCompanyLabel}</span></>}</nav>
     <header className="area-directory-hero">
       <p className="eyebrow">RAILWAY LINE DIRECTORY</p>
       <h1>駅・路線からコスメ取扱店舗を探す</h1>

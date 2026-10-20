@@ -11,11 +11,15 @@ export async function loadPage({ params }: PageProps){
   const { lineName, line } = await getLine(params);
   if (!line) notFound();
   const pageUrl = `${publicSiteOrigin}${railwayLineHref(lineName)}`;
+  const companyName = line.companies.join(" / ");
+  const companyUrl = line.companies[0] ? `${publicSiteOrigin}/lines?company=${encodeURIComponent(line.companies[0])}` : "";
+  const lineBreadcrumbPosition = line.companies.length > 0 ? 4 : 3;
   const jsonLd = { "@context":"https://schema.org", "@graph":[
     { "@type":"BreadcrumbList", itemListElement:[
       { "@type":"ListItem", position:1, name:"ホーム", item:publicSiteOrigin },
       { "@type":"ListItem", position:2, name:"駅・路線から探す", item:`${publicSiteOrigin}/lines` },
-      { "@type":"ListItem", position:3, name:lineName, item:pageUrl },
+      ...(companyName ? [{ "@type":"ListItem", position:3, name:companyName, item:companyUrl }] : []),
+      { "@type":"ListItem", position:lineBreadcrumbPosition, name:lineName, item:pageUrl },
     ]},
     { "@type":"ItemList", name:`${lineName}の登録駅`, numberOfItems:line.stations.length, itemListElement:line.stations.map((station,index)=>({"@type":"ListItem",position:index+1,name:station.name,url:`${publicSiteOrigin}${stationHref(station.name)}`})) },
   ]};
