@@ -8,7 +8,7 @@ Next.js / TypeScript / App Router / Tailwind CSS / MapLibre GL JS / Supabase Aut
 
 ## 環境構築
 
-Node.js 22.13以上を使用します。
+Node.js 22.23.4以上（22.x LTS）を使用します。
 
 ```bash
 npm install

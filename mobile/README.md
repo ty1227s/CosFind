@@ -4,7 +4,7 @@
 
 ## セットアップ
 
-リポジトリ直下とmobileでそれぞれnpm ciを実行してください。Node.js 22.13以上、JDK 21、Android SDK 36を使用します。親の.env.localにある公開用Supabase設定を使用します。秘密鍵はアプリへ含めません。
+リポジトリ直下とmobileでそれぞれnpm ciを実行してください。Node.js 22.23.4以上（22.x LTS）、JDK 21、Android SDK 36を使用します。親の.env.localにある公開用Supabase設定を使用します。秘密鍵はアプリへ含めません。
 
 ## 本番に接続
 
