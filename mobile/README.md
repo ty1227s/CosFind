@@ -4,7 +4,9 @@
 
 ## セットアップ
 
-リポジトリ直下とmobileでそれぞれnpm ciを実行してください。Node.js 22.23.4以上（22.x LTS）、JDK 21、Android SDK 36を使用します。親の.env.localにある公開用Supabase設定を使用します。秘密鍵はアプリへ含めません。
+リポジトリ直下とmobileでそれぞれnpm ciを実行してください。Node.js 22.23.4以上（22.x LTS）、JDK 21.0.13以上（Java 21系）、Android SDK 36を使用します。親の.env.localにある公開用Supabase設定を使用します。秘密鍵はアプリへ含めません。
+
+Android Studioでは `File > Settings > Build, Execution, Deployment > Build Tools > Gradle` の `Gradle JDK` に、更新済みのJDK 21を指定してください。JDK 21.0.12以前や、未検証の別メジャー版ではビルドを停止します。JDKはビルド環境だけで使用され、APK/AABには同梱されません。
 
 ## 本番に接続
 
