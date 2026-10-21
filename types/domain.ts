@@ -5,5 +5,7 @@ export interface Variant { id: string; name: string; colorCode?: string; janCode
 export type PaRating = "+" | "++" | "+++" | "++++";
 export interface Product { id: string; brand: string; name: string; category: Category; additionalCategories?: string[]; janCode: string; additionalJanCodes?: string[]; releaseDate?: string; spf?: number | null; pa?: PaRating | null; createdAt?: string; variants: Variant[]; }
 export interface Store { id: string; name: string; chain: string; type: string; address: string; latitude: number; longitude: number; customName?: boolean; stationNames?: string[]; openingDate?: string; closingDate?: string; }
-export type StoreBusinessHours = Record<string, { openingTime: string; closingTime: string; closed: boolean }>;
+export type StoreBusinessPeriod = { openingTime: string; closingTime: string };
+export type StoreBusinessDay = { openingTime: string; closingTime: string; periods?: StoreBusinessPeriod[]; closed: boolean };
+export type StoreBusinessHours = Record<string, StoreBusinessDay>;
 export interface StoreResult extends Store { lastReportedAt: string; variants: string[]; reportCount: number; distanceKm: number; businessHours?: StoreBusinessHours; }
