@@ -8,11 +8,12 @@ import municipalitySource from "@/lib/municipalities.generated.json";
 import { isRailwayRegion } from "@/lib/railway-regions";
 import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
 import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
+import { isProductMediaType, normalizeProductMediaUrl, type ProductMediaMention } from "@/lib/product-media";
 
 type Entity = "brand" | "chain" | "product" | "store" | "station" | "railwayLine" | "railwayCompany";
 type Brand = { name: string; nameKana?: string };
 type Chain = { name: string; storeType: string };
-type Product = { id?:string; brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; releaseDate?:string; spf?:number|null; pa?:string|null; createdAt?:string; variants: { name: string; colorCode?: string; janCode?: string; releaseDate?:string }[] };
+type Product = { id?:string; brand: string; name: string; category: string; additionalCategories?:string[]; janCode?: string; additionalJanCodes?:string[]; releaseDate?:string; spf?:number|null; pa?:string|null; createdAt?:string; variants: { name: string; colorCode?: string; janCode?: string; releaseDate?:string }[]; mediaMentions?: ProductMediaMention[] };
 type StoreHoursPeriod={openingTime:string;closingTime:string};
 type StoreHours=Record<string,{openingTime:string;closingTime:string;periods?:StoreHoursPeriod[];closed:boolean}>;
 type Store = { id?: string; name: string; chain?: string; type: string; address: string; latitude: number; longitude: number; customName?:boolean; stationNames?:string[]; createdAt?:string; provisionalBrandIds?:string[]; openingTime?:string; closingTime?:string; openingDate?:string; closingDate?:string; businessHours?:StoreHours };
@@ -21,10 +22,39 @@ type RailwayLine = { name: string; companies?: string[]; company?: string; stati
 type RailwayCompany = { name: string; regions?: string[] };
 type StoreRow = { id:string;name:string;chain_name:string|null;store_type:string;address:string;latitude:number;longitude:number;opening_date:string|null;closing_date:string|null;created_at:string };
 type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null;spf:number|null;pa:string|null;created_at:string; brands: { name: string } | { name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
+type ProductMediaRow = { id:string;product_id:string;media_type:string;source_name:string;title:string|null;url:string|null;published_on:string|null;note:string|null;sort_order:number };
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
   return "保存に失敗しました";
+}
+
+function isMissingProductMediaTable(error: unknown) {
+  const message = errorMessage(error).toLowerCase();
+  return message.includes("product_media_mentions") && (message.includes("does not exist") || message.includes("schema cache") || message.includes("could not find"));
+}
+
+function sanitizeMediaMentions(input: unknown) {
+  if (input != null && !Array.isArray(input)) throw new Error("メディア掲載情報の形式が不正です");
+  const mentions = (input ?? []).slice(0, 50).map((value, index) => {
+    if (!value || typeof value !== "object") throw new Error(`${index + 1}件目の掲載情報が不正です`);
+    const mention = value as Record<string, unknown>;
+    if (!isProductMediaType(mention.mediaType)) throw new Error(`${index + 1}件目の媒体種別が不正です`);
+    const sourceName = (typeof mention.sourceName === "string" ? mention.sourceName : "").trim().slice(0, 120);
+    const title = (typeof mention.title === "string" ? mention.title : "").trim().slice(0, 200);
+    const note = (typeof mention.note === "string" ? mention.note : "").trim().slice(0, 300);
+    const rawUrl = (typeof mention.url === "string" ? mention.url : "").trim();
+    const url = normalizeProductMediaUrl(rawUrl);
+    const publishedOn = (typeof mention.publishedOn === "string" ? mention.publishedOn : "").trim();
+    if (!sourceName) throw new Error(`${index + 1}件目の掲載元・アカウント名を入力してください`);
+    if (rawUrl && !url) throw new Error(`${index + 1}件目のURLはhttps://から入力してください`);
+    if (mention.mediaType !== "magazine" && !url) throw new Error(`${index + 1}件目のURLを入力してください`);
+    if (publishedOn && !/^\d{4}-\d{2}-\d{2}$/.test(publishedOn)) throw new Error(`${index + 1}件目の掲載日が不正です`);
+    return { mediaType:mention.mediaType,sourceName,title,url,publishedOn,note,sortOrder:index };
+  });
+  const urls = mentions.map((mention) => mention.url).filter(Boolean);
+  if (new Set(urls).size !== urls.length) throw new Error("同じURLのメディア掲載情報が重複しています");
+  return mentions;
 }
 
 async function authorized() {
@@ -36,13 +66,15 @@ export async function GET() {
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
     const db = createSupabaseAdminClient();
-    const [brandsResult, chainsResult, productRows, storeRows, productRequestsResult, storeRequestsResult] = await Promise.all([
+    const productMediaPromise=fetchAllSupabaseRows<ProductMediaRow>((from,to)=>db.from("product_media_mentions").select("id,product_id,media_type,source_name,title,url,published_on,note,sort_order").order("product_id").order("sort_order").order("id").range(from,to)).then(rows=>({rows,available:true})).catch(error=>{if(isMissingProductMediaTable(error))return{rows:[] as ProductMediaRow[],available:false};throw error});
+    const [brandsResult, chainsResult, productRows, storeRows, productRequestsResult, storeRequestsResult, productMediaCatalog] = await Promise.all([
       db.from("brands").select("id,name,name_kana").order("name"),
       db.from("store_chains").select("id,name,store_type").eq("is_active", true).order("name"),
       fetchAllSupabaseRows<ProductRow>((from,to)=>db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,created_at,brands(name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("is_active", true).order("name").order("id").order("created_at", { referencedTable: "product_variants" }).range(from,to)),
       fetchAllSupabaseRows<StoreRow>((from,to)=>db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date,created_at").eq("is_active", true).order("name").order("id").range(from,to)),
       db.from("product_requests").select("id,user_id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
       db.from("store_requests").select("id,payload,created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(1000),
+      productMediaPromise,
     ]);
     const error = brandsResult.error || chainsResult.error || productRequestsResult.error || storeRequestsResult.error;
     if (error) throw error;
@@ -83,12 +115,14 @@ export async function GET() {
     for(const [stationName,metadata] of stationMetadata)if(metadata.isActive)for(const lineName of metadata.lineNames){const members=lineMembers.get(lineName)??[];if(!members.includes(stationName))members.push(stationName);lineMembers.set(lineName,members)}
     const railwayLineNames=new Set([...railwayLineMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const name of lineMembers.keys())railwayLineNames.add(name);
     const railwayCompanyNames=new Set([...railwayCompanyMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name])=>name));for(const metadata of railwayLineMetadata.values())if(metadata.isActive)for(const company of metadata.companies)railwayCompanyNames.add(company);
+    const mediaByProduct=new Map<string,ProductMediaMention[]>();
+    for(const mention of productMediaCatalog.rows){if(!isProductMediaType(mention.media_type))continue;const items=mediaByProduct.get(mention.product_id)??[];items.push({id:mention.id,mediaType:mention.media_type,sourceName:mention.source_name,title:mention.title??"",url:mention.url??"",publishedOn:mention.published_on??"",note:mention.note??""});mediaByProduct.set(mention.product_id,items)}
     const requestStoreNames=new Map(storeRows.map(store=>[store.id,[store.chain_name,store.name].filter(Boolean).join(" ")]));
     return NextResponse.json({
       ok: true,
       brands: (brandsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, nameKana: row.name_kana ?? "" })),
       chains: (chainsResult.data ?? []).map((row) => ({ id: row.id, name: row.name, storeType: row.store_type })),
-      products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name === variant.color_code ? "" : variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })) })),
+      products: productRows.map((row) => ({ id: row.id, brand: Array.isArray(row.brands) ? row.brands[0]?.name ?? "" : row.brands?.name ?? "", name: row.name, category: row.category, additionalCategories:row.additional_categories??[], janCode: row.jan_code ?? "", additionalJanCodes:row.additional_jan_codes??[], releaseDate:row.release_date??"",spf:row.spf,pa:row.pa,createdAt:row.created_at,variants: row.product_variants.map((variant) => ({ id: variant.id, name: variant.variant_name === variant.color_code ? "" : variant.variant_name, colorCode: variant.color_code ?? "", janCode: variant.jan_code ?? "",releaseDate:variant.release_date??"" })),mediaMentions:mediaByProduct.get(row.id)??[] })),
       stores: storeRows.map((row) => {const metadata=storeMetadata.get(row.id);return { id: row.id, name: row.name, chain: row.chain_name ?? "", type: row.store_type, address: row.address, latitude: row.latitude, longitude: row.longitude,openingDate:row.opening_date??"",closingDate:row.closing_date??"",customName:metadata?.customName??false,stationNames:metadata?.stationNames??[],createdAt:row.created_at,provisionalBrandIds:metadata?.brandIds??[],openingTime:metadata?.openingTime??"",closingTime:metadata?.closingTime??"",businessHours:metadata?.businessHours??{} }}),
       stations: [...stationMetadata.entries()].filter(([,metadata])=>metadata.isActive).map(([name,metadata])=>({name,prefecture:metadata.prefecture,municipality:metadata.municipality,lineNames:metadata.lineNames})).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
       railwayLines: [...railwayLineNames].map(name=>{const members=lineMembers.get(name)??[];const configured=railwayLineMetadata.get(name);const preferred=configured?.stationNames??[];return{name,companies:configured?.companies??[],visualType:configured?.visualType??"color",imageUrl:configured?.imageUrl??"",lineColor:configured?.lineColor??"",stationNames:[...preferred.filter(station=>members.includes(station)),...members.filter(station=>!preferred.includes(station)).sort((left,right)=>left.localeCompare(right,"ja"))]}}).sort((left,right)=>left.name.localeCompare(right.name,"ja")),
@@ -129,7 +163,13 @@ export async function POST(request: Request) {
       if (result.error) throw result.error;
       if (previous && previous.name !== row.name) { const stores = await db.from("stores").update({ chain_name: row.name, store_type: row.storeType }).eq("chain_name", previous.name); if (stores.error) throw stores.error; }
     } else if (body.entity === "product") {
-      const row = body.data as Product; const previous = body.previous as Product | undefined; const currentBrandId = await getBrandId(row.brand); let productId = ""; let productCreatedAt = previous?.createdAt ?? "";
+      const row = body.data as Product; const previous = body.previous as Product | undefined; let productId = ""; let productCreatedAt = previous?.createdAt ?? "";
+      const mediaMentions=sanitizeMediaMentions(row.mediaMentions);
+      const mediaTableCheck=await db.from("product_media_mentions").select("id").limit(1);
+      const mediaTableAvailable=!mediaTableCheck.error;
+      if(mediaTableCheck.error&&!isMissingProductMediaTable(mediaTableCheck.error))throw mediaTableCheck.error;
+      if(!mediaTableAvailable&&mediaMentions.length)throw new Error("メディア掲載情報用のSQL（0012_product_media_mentions.sql）を先に実行してください");
+      const currentBrandId = await getBrandId(row.brand);
       const primaryJanCode = row.janCode?.trim() || null;
       const additionalJanCodes = [...new Set((row.additionalJanCodes??[]).map((code)=>code.trim()).filter((code)=>code&&code!==primaryJanCode))].slice(0,30);
       if(row.variants.some((variant)=>!variant.name.trim()&&!variant.colorCode?.trim()&&Boolean(variant.janCode?.trim()||variant.releaseDate?.trim())))throw new Error("カラー名または色番がないバリエーション行があります");
@@ -143,8 +183,10 @@ export async function POST(request: Request) {
       const removed = await db.from("product_variants").delete().eq("product_id", productId); if (removed.error) throw removed.error;
       const variants = row.variants.filter((variant) => variant.name.trim() || variant.colorCode?.trim()).map((variant, index) => { const colorCode=variant.colorCode?.trim()||null;return { product_id: productId, variant_name: variant.name.trim() || colorCode!, color_code: colorCode, jan_code: variant.janCode || null,release_date:variant.releaseDate||null,created_at:new Date(Date.now()+index).toISOString() }});
       if (variants.length) { const inserted = await db.from("product_variants").insert(variants); if (inserted.error) throw inserted.error; }
+      let confirmedMedia:ProductMediaMention[]=[];
+      if(mediaTableAvailable){const removedMedia=await db.from("product_media_mentions").delete().eq("product_id",productId);if(removedMedia.error)throw removedMedia.error;if(mediaMentions.length){const insertedMedia=await db.from("product_media_mentions").insert(mediaMentions.map(mention=>({product_id:productId,media_type:mention.mediaType,source_name:mention.sourceName,title:mention.title||null,url:mention.url||null,published_on:mention.publishedOn||null,note:mention.note||null,sort_order:mention.sortOrder}))).select("id,media_type,source_name,title,url,published_on,note,sort_order");if(insertedMedia.error)throw insertedMedia.error;confirmedMedia=((insertedMedia.data??[]) as ProductMediaRow[]).sort((left,right)=>left.sort_order-right.sort_order).flatMap(mention=>isProductMediaType(mention.media_type)?[{id:mention.id,mediaType:mention.media_type,sourceName:mention.source_name,title:mention.title??"",url:mention.url??"",publishedOn:mention.published_on??"",note:mention.note??""}]:[])}}
       const confirmedVariants=await db.from("product_variants").select("id,variant_name,color_code,jan_code,release_date").eq("product_id",productId).order("created_at");if(confirmedVariants.error)throw confirmedVariants.error;
-      savedData={id:productId,brand:row.brand,name:row.name.trim(),category:row.category,additionalCategories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))],janCode:primaryJanCode??"",additionalJanCodes,releaseDate:row.releaseDate||"",spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,createdAt:productCreatedAt,variants:(confirmedVariants.data??[]).map(variant=>({id:variant.id,name:variant.variant_name===variant.color_code?"":variant.variant_name,colorCode:variant.color_code??"",janCode:variant.jan_code??"",releaseDate:variant.release_date??""}))};
+      savedData={id:productId,brand:row.brand,name:row.name.trim(),category:row.category,additionalCategories:[...new Set((row.additionalCategories??[]).filter(category=>category&&category!==row.category))],janCode:primaryJanCode??"",additionalJanCodes,releaseDate:row.releaseDate||"",spf:Number.isFinite(row.spf)?row.spf:null,pa:["+","++","+++","++++"].includes(row.pa||"")?row.pa:null,createdAt:productCreatedAt,variants:(confirmedVariants.data??[]).map(variant=>({id:variant.id,name:variant.variant_name===variant.color_code?"":variant.variant_name,colorCode:variant.color_code??"",janCode:variant.jan_code??"",releaseDate:variant.release_date??""})),mediaMentions:confirmedMedia};
     } else if (body.entity === "station") {
       const row=body.data as Station;const previous=body.previous as Station|undefined;
       const stationNameRaw=row.name.replace(/[\s　]+/g," ").trim().slice(0,50);

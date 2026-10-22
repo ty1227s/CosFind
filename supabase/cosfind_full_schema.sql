@@ -1,5 +1,5 @@
 -- CosFind consolidated Supabase schema
--- Generated from supabase/migrations/0001-0008 and the columns currently used by the application.
+-- Generated from supabase/migrations/0001-0012 and the columns currently used by the application.
 -- Target: a NEW, EMPTY Supabase project.
 --
 -- IMPORTANT:
@@ -87,6 +87,32 @@ create table public.product_variants (
 
 comment on column public.product_variants.release_date is
   'Optional release date for this color or variation. Independent from products.release_date.';
+
+create table public.product_media_mentions (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  media_type text not null,
+  source_name varchar(120) not null,
+  title varchar(200),
+  url text,
+  published_on date,
+  note varchar(300),
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint product_media_mentions_type_check
+    check (media_type in ('instagram', 'youtube', 'x', 'magazine', 'web', 'other')),
+  constraint product_media_mentions_source_check
+    check (char_length(trim(source_name)) between 1 and 120),
+  constraint product_media_mentions_url_check
+    check (url is null or url ~ '^https://')
+);
+
+create index product_media_mentions_product_order_idx
+  on public.product_media_mentions (product_id, published_on desc nulls last, sort_order, id);
+create unique index product_media_mentions_product_url_unique
+  on public.product_media_mentions (product_id, url)
+  where url is not null;
 
 create table public.store_chains (
   id uuid primary key default gen_random_uuid(),
@@ -291,6 +317,7 @@ alter table public.profiles enable row level security;
 alter table public.brands enable row level security;
 alter table public.products enable row level security;
 alter table public.product_variants enable row level security;
+alter table public.product_media_mentions enable row level security;
 alter table public.store_chains enable row level security;
 alter table public.stores enable row level security;
 alter table public.stock_reports enable row level security;
@@ -311,6 +338,20 @@ using (is_active);
 create policy "public catalog variants"
 on public.product_variants for select
 using (true);
+
+create policy "public product media mentions"
+on public.product_media_mentions for select
+using (
+  exists (
+    select 1 from public.products p
+    where p.id = product_id and p.is_active
+  )
+);
+
+create policy "admins manage product media mentions"
+on public.product_media_mentions for all
+using (public.is_admin())
+with check (public.is_admin());
 
 create policy "public active chains"
 on public.store_chains for select
@@ -410,6 +451,7 @@ revoke all on public.profiles from anon, authenticated;
 revoke all on public.brands from anon, authenticated;
 revoke all on public.products from anon, authenticated;
 revoke all on public.product_variants from anon, authenticated;
+revoke all on public.product_media_mentions from anon, authenticated;
 revoke all on public.store_chains from anon, authenticated;
 revoke all on public.stores from anon, authenticated;
 revoke all on public.stock_reports from anon, authenticated;
@@ -422,6 +464,7 @@ revoke all on public.announcements from anon, authenticated;
 grant select on public.brands to anon, authenticated;
 grant select on public.products to anon, authenticated;
 grant select on public.product_variants to anon, authenticated;
+grant select on public.product_media_mentions to anon, authenticated;
 grant select on public.store_chains to anon, authenticated;
 grant select on public.stores to anon, authenticated;
 grant select on public.announcements to anon, authenticated;
@@ -437,6 +480,7 @@ grant all on public.profiles to service_role;
 grant all on public.brands to service_role;
 grant all on public.products to service_role;
 grant all on public.product_variants to service_role;
+grant all on public.product_media_mentions to service_role;
 grant all on public.store_chains to service_role;
 grant all on public.stores to service_role;
 grant all on public.stock_reports to service_role;
