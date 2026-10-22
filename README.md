@@ -8,7 +8,7 @@ Next.js / TypeScript / App Router / Tailwind CSS / MapLibre GL JS / Supabase Aut
 
 ## 環境構築
 
-Node.js 22.23.4以上（22.x LTS）を使用します。
+ローカル開発ではNode.js 22.23.4以上（22.xまたは24.x）を使用します。Cloudflare Workers Buildsでは、ビルドイメージにプリインストールされたNode.js 24.21.0を使用します。
 
 ```bash
 npm install
