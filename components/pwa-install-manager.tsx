@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -37,12 +39,27 @@ export function PwaInstallButton() {
 }
 
 export function PwaInstallManager() {
+  const pathname = usePathname();
   const [available, setAvailable] = useState(false);
   const [dismissed, setDismissed] = useState(true);
+  const [sessionState, setSessionState] = useState<"checking" | "guest" | "authenticated">("checking");
 
   useEffect(() => {
-    queueMicrotask(() => setDismissed(sessionStorage.getItem("cosfind-pwa-banner-dismissed") === "1"));
+    let active = true;
+    void fetch("/api/auth/session", { cache: "no-store" })
+      .then((response) => response.json() as Promise<{ authenticated?: boolean }>)
+      .then((session) => { if (active) setSessionState(session.authenticated ? "authenticated" : "guest"); })
+      .catch(() => { if (active) setSessionState("guest"); });
+    return () => { active = false; };
+  }, []);
 
+  useEffect(() => {
+    if (sessionState === "checking") return;
+    const key = sessionState === "guest" ? "cosfind-signup-banner-dismissed" : "cosfind-pwa-banner-dismissed";
+    queueMicrotask(() => setDismissed(sessionStorage.getItem(key) === "1"));
+  }, [sessionState]);
+
+  useEffect(() => {
     if ("serviceWorker" in navigator) {
       void navigator.serviceWorker.register("/sw.js", { scope: "/" }).then((registration) => registration.update()).catch(() => undefined);
     }
@@ -66,11 +83,16 @@ export function PwaInstallManager() {
     };
   }, []);
 
-  if (!available || dismissed) return null;
-  return <aside className="pwa-install-banner" aria-label="Androidアプリのインストール案内">
+  const registrationPage = pathname === "/login" || pathname.startsWith("/admin") || pathname === "/forgot-password" || pathname === "/reset-password";
+  const showSignup = sessionState === "guest" && !registrationPage;
+  const showInstall = sessionState === "authenticated" && available;
+  if ((!showSignup && !showInstall) || dismissed) return null;
+  const storageKey = showSignup ? "cosfind-signup-banner-dismissed" : "cosfind-pwa-banner-dismissed";
+  return <aside className={`pwa-install-banner${showSignup ? " signup-banner" : ""}`} aria-label={showSignup ? "新規ユーザー登録の案内" : "Androidアプリのインストール案内"}>
     <Image src="/icons/icon-192.png" alt="" width={44} height={44} />
-    <span><b>CosFindをアプリとして使う</b><small>Androidのホーム画面からすぐ開けます</small></span>
-    <button type="button" className="pwa-install-action" onClick={() => void requestInstall()}>インストール</button>
-    <button type="button" className="pwa-install-dismiss" aria-label="閉じる" onClick={() => { sessionStorage.setItem("cosfind-pwa-banner-dismissed", "1"); setDismissed(true); }}>×</button>
+    {showSignup
+      ? <><span><b>見つけたコスメ情報をシェアしよう</b><small>無料登録して、みんなのコスメ探しをもっと便利に</small></span><Link className="pwa-install-action" href="/login?mode=signup">新規登録</Link></>
+      : <><span><b>CosFindをアプリとして使う</b><small>Androidのホーム画面からすぐ開けます</small></span><button type="button" className="pwa-install-action" onClick={() => void requestInstall()}>インストール</button></>}
+    <button type="button" className="pwa-install-dismiss" aria-label="閉じる" onClick={() => { sessionStorage.setItem(storageKey, "1"); setDismissed(true); }}>×</button>
   </aside>;
 }

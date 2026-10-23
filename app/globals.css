@@ -369,7 +369,7 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
 .pwa-install-banner>img{display:block;border-radius:11px}
 .pwa-install-banner>span{display:flex;min-width:0;flex-direction:column;gap:2px}
 .pwa-install-banner>span b{font-size:13px}.pwa-install-banner>span small{color:var(--muted);font-size:10px}
-.pwa-install-action{border:0;border-radius:10px;background:var(--pink);color:#fff;padding:10px 13px;font-weight:800;cursor:pointer}
+.pwa-install-action{border:0;border-radius:10px;background:var(--pink);color:#fff;padding:10px 13px;font-weight:800;text-align:center;text-decoration:none;cursor:pointer}
 .pwa-install-dismiss{display:grid;width:30px;height:30px;border:0;border-radius:50%;background:#f6f1f4;color:#735264;font-size:20px;place-items:center;cursor:pointer}
 @media(max-width:700px){
   body{padding-right:env(safe-area-inset-right);padding-left:env(safe-area-inset-left)}
@@ -377,7 +377,7 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
   .pwa-install-banner{right:10px;bottom:calc(10px + env(safe-area-inset-bottom));grid-template-columns:40px minmax(0,1fr) 30px;width:calc(100vw - 20px);padding:10px}
   .pwa-install-banner>img{width:40px;height:40px}.pwa-install-banner>span small{display:none}.pwa-install-action{grid-column:1/-1;width:100%}.pwa-install-dismiss{grid-column:3;grid-row:1}
 }
-@media(display-mode:standalone){.pwa-install-banner,.pwa-menu-install{display:none!important}}
+@media(display-mode:standalone){.pwa-install-banner:not(.signup-banner),.pwa-menu-install{display:none!important}}
 
 .topbar .header-login-link{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:8px 12px;border-radius:10px;color:#5c4e56;white-space:nowrap}
 
