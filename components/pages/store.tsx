@@ -10,6 +10,7 @@ import {getStoreTypeCode} from "@/lib/store-type-code";
 import {stationHref} from "@/lib/area-links";
 import {AdminDirectEditButton} from "@/components/admin-direct-edit-button";
 import {StickyStoreTitle} from "@/components/sticky-store-title";
+import {BackToTopButton} from "@/components/back-to-top-button";
 import type {loadPage} from "@/lib/server/mobile-pages/store";
 type Model = Awaited<ReturnType<typeof loadPage>>;
 export function StoreView({model}:{model:Model}){
@@ -26,5 +27,5 @@ return <><SiteHeader/><main className="detail">
     {reportedBrands.length>0&&<section><h2>報告があったブランド</h2><div className="reported-brands"><div>{reportedBrands.map(name=><span key={name}>{name}</span>)}</div></div></section>}
     <AuthenticatedOnly><StoreBrandReportForm storeId={store.id} brands={allBrands} reportedBrandNames={reportedBrands}/></AuthenticatedOnly>
     <section><h2>この店舗で最近報告された商品</h2><StoreProductList items={productItems}/></section>
-  </main></>;
+  </main><BackToTopButton/></>;
 }
