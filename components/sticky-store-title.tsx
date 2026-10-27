@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
+
+const subscribeToHydration = () => () => undefined;
 
 export function StickyStoreTitle({ name }: { name: string }) {
   const markerRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   useEffect(() => {
     const marker = markerRef.current;
@@ -31,8 +35,8 @@ export function StickyStoreTitle({ name }: { name: string }) {
 
   return <>
     <div ref={markerRef} className="sticky-store-title-marker" aria-hidden="true" />
-    <div className={`sticky-store-title${visible ? " is-visible" : ""}`} aria-hidden={!visible}>
+    {mounted && createPortal(<div className={`sticky-store-title${visible ? " is-visible" : ""}`} aria-hidden={!visible}>
       <strong>{name}</strong>
-    </div>
+    </div>, document.body)}
   </>;
 }
