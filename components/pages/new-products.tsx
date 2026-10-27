@@ -15,16 +15,28 @@ type NewProduct = {
 function brandName(value: NewProduct["brands"]) {
   return Array.isArray(value) ? value[0]?.name ?? "" : value?.name ?? "";
 }
-function ProductCards({ products, selectedDate }: { products: NewProduct[]; selectedDate: string }) {
+function ProductList({ products, selectedDate }: { products: NewProduct[]; selectedDate: string }) {
   if (!products.length) return <div className="new-cosmetics-empty"><b>この日に発売される商品はありません</b><p>週間カレンダー、または日付選択から別の日を確認できます。</p></div>;
 
-  return <div className="home-new-grid new-cosmetics-grid">{products.map((product) => {
+  return <div className="new-cosmetics-list">
+    <div className="new-cosmetics-list-head" aria-hidden="true">
+      <span>商品 / ブランド</span>
+      <span>カテゴリ</span>
+      <span>カラー / バリエーション</span>
+    </div>
+    {products.map((product) => {
     const variants = product.product_variants.filter((variant) => variant.release_date === selectedDate);
-    return <Link href={`/products/${product.id}`} className="home-new-card" key={product.id}>
-      <small>{brandName(product.brands) || "ブランド未設定"}</small>
-      <h3>{product.name}</h3>
+    return <Link href={`/products/${product.id}`} className="new-cosmetics-list-row" key={product.id}>
+      <span className="new-cosmetics-product-name">
+        <b>{product.name}</b>
+        <small>{brandName(product.brands) || "ブランド未設定"}</small>
+      </span>
       <ProductCategoryBadges categories={[product.category,...(product.additional_categories??[])]}/>
-      {variants.length > 0 && <div className="new-cosmetics-variants"><span>{variants.map((variant) => formatVariantName({ name: variant.variant_name, colorCode: variant.color_code })).join(" / ")}</span></div>}
+      <span className="new-cosmetics-list-variants">
+        {variants.length > 0
+          ? variants.map((variant) => formatVariantName({ name: variant.variant_name, colorCode: variant.color_code })).join(" / ")
+          : "—"}
+      </span>
     </Link>;
   })}</div>;
 }
@@ -37,7 +49,7 @@ return <><SiteHeader/><main className="new-cosmetics-index-page"><section>
     <NewCosmeticsCalendar selectedDate={selectedDate} today={today}/>
     {resultError ? <div className="product-search-empty is-error"><span>!</span><b>新作コスメを読み込めませんでした</b><p>少し待ってから、もう一度お試しください。</p></div> : <section className="new-cosmetics-day-group">
       <div className="new-cosmetics-group-head"><div><span className={selectedDate > today ? "upcoming-dot" : "released-dot"}/><h2>{dateLabel}発売の商品</h2></div><small>{products.length}件</small></div>
-      <ProductCards products={products} selectedDate={selectedDate}/>
+      <ProductList products={products} selectedDate={selectedDate}/>
     </section>}
   </section></main></>;
 }
