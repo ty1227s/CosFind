@@ -9,6 +9,7 @@ import {formatStoreBusinessDay,formatStoreHoursRange} from "@/lib/store-hours";
 import {getStoreTypeCode} from "@/lib/store-type-code";
 import {stationHref} from "@/lib/area-links";
 import {AdminDirectEditButton} from "@/components/admin-direct-edit-button";
+import {StickyStoreTitle} from "@/components/sticky-store-title";
 import type {loadPage} from "@/lib/server/mobile-pages/store";
 type Model = Awaited<ReturnType<typeof loadPage>>;
 export function StoreView({model}:{model:Model}){
@@ -16,7 +17,7 @@ if(model.loadError){const {id}=model;return <><SiteHeader/><main className="deta
 const {store,openingTime,closingTime,weeklyHours,hasWeeklyHours,reportedBrands,allBrands,productItems,googleMapsUrl,storeTypeColor,displayName,jsonLd}=model;
 return <><SiteHeader/><main className="detail">
     <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(jsonLd).replace(/</g,"\\u003c")}}/>
-    <p className="store-detail-type-name">{store.type}</p><div className="store-detail-title"><h1>{displayName}</h1><i style={{backgroundColor:storeTypeColor.background,color:storeTypeColor.foreground}}>{getStoreTypeCode(store.type)}</i></div><p className="lead">{store.address||"住所情報なし"}</p>
+    <StickyStoreTitle name={displayName}/><p className="store-detail-type-name">{store.type}</p><div className="store-detail-title"><h1>{displayName}</h1><i style={{backgroundColor:storeTypeColor.background,color:storeTypeColor.foreground}}>{getStoreTypeCode(store.type)}</i></div><p className="lead">{store.address||"住所情報なし"}</p>
     {store.stationNames.length>0&&<div className="store-stations" aria-label="最寄り駅・周辺駅"><b>最寄り駅・周辺駅</b><div className="station-tags">{store.stationNames.map(name=><Link href={stationHref(name)} key={name}>{name}</Link>)}</div></div>}
     {hasWeeklyHours?<div className="store-weekly-hours"><b>営業時間</b><dl>{weeklyHours.map(hours=><div key={hours.key}><dt>{hours.label}</dt><dd>{formatStoreBusinessDay(hours)}</dd></div>)}</dl></div>:(openingTime||closingTime)&&<p className="store-business-hours"><b>営業時間</b><span>{formatStoreHoursRange(openingTime,closingTime)}</span></p>}
     <div className="detail-primary-actions"><FavoriteButton kind="store" id={store.id}/><a className="google-maps-link" href={googleMapsUrl} target="_blank" rel="noopener noreferrer">Googleマップで開く ↗</a><AuthenticatedOnly><Link className="detail-report-button" href={`/report?store=${store.id}`}>✦ この店舗で見つけた商品を報告</Link></AuthenticatedOnly><AdminDirectEditButton entity="store" id={store.id}/></div>

@@ -363,6 +363,7 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
 .detail .store-detail-title>h1{min-width:0;margin:0}
 .store-detail-title>i{display:grid;width:40px;height:29px;flex:none;place-items:center;border:1px solid #0002;border-radius:7px;font-family:"century-gothic",sans-serif;font-size:12px;font-style:normal;font-weight:700;line-height:1;letter-spacing:-.04em}
 @media(max-width:700px){.store-detail-title{align-items:flex-start;gap:8px}.store-detail-title>i{width:36px;height:27px;margin-top:3px;font-size:11px}}
+.sticky-store-title-marker{width:1px;height:1px;margin:0;padding:0;pointer-events:none}.sticky-store-title{position:fixed;z-index:900;top:72px;right:0;left:0;display:flex;min-height:50px;align-items:center;border-bottom:1px solid var(--line);background:#fffffff2;padding:9px max(24px,calc((100vw - 960px)/2 + 24px));box-shadow:0 7px 20px #4d294214;opacity:0;transform:translateY(-10px);pointer-events:none;transition:opacity .2s ease,transform .24s ease;backdrop-filter:blur(10px)}.sticky-store-title.is-visible{opacity:1;transform:translateY(0)}.sticky-store-title strong{display:block;overflow:hidden;color:var(--ink);font-size:16px;line-height:1.45;text-overflow:ellipsis;white-space:nowrap}@media(max-width:700px){.sticky-store-title{top:60px;min-height:46px;padding:8px 15px}.sticky-store-title strong{font-size:14px}}@media(prefers-reduced-motion:reduce){.sticky-store-title{transition:none}}
 
 /* Android PWA install prompt. Safe-area padding keeps controls clear of gesture navigation. */
 .pwa-menu-install{display:none}
