@@ -38,9 +38,10 @@ export function createStoreMetadataLoader(request: typeof fetch = (...args) => f
   return async (ids: string[]): Promise<ResponseData> => {
     const ordered = [...new Set(ids)].sort();
     const stores: Record<string, Metadata> = {};
-    // Avoid firing one request per 100 stores simultaneously.
-    for (let offset = 0; offset < ordered.length; offset += 200) {
-      const chunks = [ordered.slice(offset, offset + 100), ordered.slice(offset + 100, offset + 200)].filter(chunk => chunk.length);
+    // Keep at most two requests in flight while avoiding dozens of small
+    // round trips once the public catalog grows beyond 2,000 stores.
+    for (let offset = 0; offset < ordered.length; offset += 1000) {
+      const chunks = [ordered.slice(offset, offset + 500), ordered.slice(offset + 500, offset + 1000)].filter(chunk => chunk.length);
       for (const result of await Promise.all(chunks.map(batch))) Object.assign(stores, result);
     }
     return { stores };

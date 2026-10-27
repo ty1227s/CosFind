@@ -33,9 +33,15 @@ export function CosFindApp({ initialStation = "" }: { initialStation?: string })
    if (!active || inFlight || Date.now() < nextRefresh || document.visibilityState !== "visible") return;
    inFlight = true;
    try {
-    const rows = await catalogRepository.getStores();
+    const applyRows = (rows: typeof storeResults) => {
+     if (!active) return;
+     setStoreLoadError(false);
+     setStoreResults(rows);
+     setSelected(current => rows.some(s => s.id === current) ? current : "");
+    };
+    const rows = await catalogRepository.getStores(applyRows);
     failures = 0;
-    if (active) { setStoreLoadError(false); setStoreResults(rows); setSelected(current => rows.some(s => s.id === current) ? current : ""); }
+    applyRows(rows);
    } catch { failures++; if (active) setStoreLoadError(true); }
    finally { nextRefresh = Date.now() + Math.min(300000, 60000 * 2 ** Math.min(failures, 3)); inFlight = false; }
   };

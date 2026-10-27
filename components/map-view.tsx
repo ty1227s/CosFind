@@ -10,6 +10,7 @@ import { saveCurrentLocation } from "@/lib/current-location";
 
 const MAP_VIEW_KEY = "cosfind_map_view_v1";
 type SavedMapView = { longitude: number; latitude: number; zoom: number };
+type ManagedMarker = { marker: import("maplibre-gl").Marker; signature: string };
 
 function readSavedMapView(): SavedMapView | null {
   try {
@@ -26,7 +27,8 @@ function isMobileMapDevice() {
 export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVisibleStoresChange, onCurrentLocationChange }: { stores: StoreResult[]; selected?: string; focusStoresKey?: string; onSelect: (id: string) => void; onVisibleStoresChange?: (ids: string[]) => void; onCurrentLocationChange?: (location: { latitude: number; longitude: number } | null) => void }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("maplibre-gl").Map | null>(null);
-  const markersRef = useRef<import("maplibre-gl").Marker[]>([]);
+  const maplibreRef = useRef<typeof import("maplibre-gl") | null>(null);
+  const markersRef = useRef<Map<string, ManagedMarker>>(new Map());
   const userMarkerRef = useRef<import("maplibre-gl").Marker | null>(null);
   const centerTimerRef = useRef<number | undefined>(undefined);
   const legendTimerRef = useRef<number | undefined>(undefined);
@@ -84,12 +86,14 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
     let watchId: number | undefined;
     let saveMapView: (() => void) | undefined;
     const resizeTimers: number[] = [];
+    const managedMarkers = markersRef.current;
     const resizeMap = () => {
       if (disposed || !mapRef.current || !container.current?.clientWidth || !container.current.clientHeight) return;
       mapRef.current.resize();
     };
     void import("maplibre-gl").then((maplibre) => {
       if (disposed || !container.current) return;
+      maplibreRef.current = maplibre;
       const savedView = readSavedMapView();
       const map = new maplibre.Map({ container: container.current, center: savedView ? [savedView.longitude, savedView.latitude] : [139.7006, 35.6896], zoom: savedView?.zoom ?? 13.5, style: { version: 8, sources: { osm: { type: "raster", tiles: [process.env.NEXT_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "© OpenStreetMap contributors" } }, layers: [{ id: "osm", type: "raster", source: "osm" }] }, attributionControl: { compact: true } });
       map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");
@@ -119,7 +123,7 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
         setLocationState("visible");
       }, () => { setLocationState("denied"); onCurrentLocationChangeRef.current?.(null); }, { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 });
     });
-    return () => { disposed = true; resizeTimers.forEach((timer) => window.clearTimeout(timer)); window.removeEventListener("resize", resizeMap); window.removeEventListener("orientationchange", resizeMap); document.removeEventListener("visibilitychange", resizeMap); saveMapView?.(); if (saveMapView) { window.removeEventListener("pagehide", saveMapView); window.removeEventListener("beforeunload", saveMapView); } if (watchId !== undefined) navigator.geolocation.clearWatch(watchId); if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); userMarkerRef.current?.remove(); userMarkerRef.current = null; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; mapRef.current?.remove(); mapRef.current = null; };
+    return () => { disposed = true; resizeTimers.forEach((timer) => window.clearTimeout(timer)); window.removeEventListener("resize", resizeMap); window.removeEventListener("orientationchange", resizeMap); document.removeEventListener("visibilitychange", resizeMap); saveMapView?.(); if (saveMapView) { window.removeEventListener("pagehide", saveMapView); window.removeEventListener("beforeunload", saveMapView); } if (watchId !== undefined) navigator.geolocation.clearWatch(watchId); if (centerTimerRef.current !== undefined) window.clearTimeout(centerTimerRef.current); userMarkerRef.current?.remove(); userMarkerRef.current = null; managedMarkers.forEach(({ marker }) => marker.remove()); managedMarkers.clear(); maplibreRef.current = null; mapRef.current?.remove(); mapRef.current = null; };
   }, []);
 
   useEffect(() => {
@@ -148,17 +152,46 @@ export function MapView({ stores, selected, focusStoresKey = "", onSelect, onVis
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
-    markersRef.current.forEach((marker) => marker.remove()); markersRef.current = [];
     const currentBounds = mapRef.current.getBounds();
     const markerStoreIds = visibleStoreIds.length > 0
       ? visibleStoreIds
       : stores.filter((store) => currentBounds.contains([store.longitude, store.latitude])).map((store) => store.id);
-    if (markerStoreIds.length > 100) return;
+    if (markerStoreIds.length > 100) {
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.clear();
+      return;
+    }
     const visibleSet = new Set(markerStoreIds);
     const storesWithPins = stores.filter((store) => visibleSet.has(store.id));
     let cancelled = false;
-    void import("maplibre-gl").then((maplibre) => { if (cancelled || !mapRef.current) return; markersRef.current = storesWithPins.map((store) => { const element = document.createElement("button"); const color = getStoreTypeColor(store.type); const code = getStoreTypeCode(store.type); const storeName = formatStoreName(store); const active = store.id === selectedStoreRef.current; element.type = "button"; element.dataset.storeId = store.id; element.className = `map-pin${active ? " active" : ""}`; element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.style.zIndex = active ? "1000" : "1"; element.setAttribute("aria-label", `${storeName}、${store.type}`); element.setAttribute("aria-pressed", String(active)); element.title = storeName; element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`; element.onclick = () => selectStore(store); return new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current!); }); });
-    return () => { cancelled = true; markersRef.current.forEach((marker) => marker.remove()); markersRef.current = []; };
+    const syncMarkers = async () => {
+      const maplibre = maplibreRef.current ?? await import("maplibre-gl");
+      if (cancelled || !mapRef.current) return;
+      maplibreRef.current = maplibre;
+      for (const [id, managed] of markersRef.current) {
+        if (!visibleSet.has(id)) { managed.marker.remove(); markersRef.current.delete(id); }
+      }
+      for (const store of storesWithPins) {
+        const color = getStoreTypeColor(store.type);
+        const code = getStoreTypeCode(store.type);
+        const storeName = formatStoreName(store);
+        const signature = `${store.longitude}:${store.latitude}:${storeName}:${store.type}:${color.background}:${color.foreground}:${code}`;
+        const current = markersRef.current.get(store.id);
+        if (current?.signature === signature) continue;
+        current?.marker.remove();
+        const element = document.createElement("button");
+        const active = store.id === selectedStoreRef.current;
+        element.type = "button"; element.dataset.storeId = store.id; element.className = `map-pin${active ? " active" : ""}`;
+        element.style.setProperty("--store-color", color.background); element.style.setProperty("--store-foreground", color.foreground); element.style.zIndex = active ? "1000" : "1";
+        element.setAttribute("aria-label", `${storeName}、${store.type}`); element.setAttribute("aria-pressed", String(active)); element.title = storeName;
+        element.innerHTML = `<svg viewBox="0 0 44 52" aria-hidden="true" focusable="false"><path class="store-pin-body" d="M22 1.5C11.4 1.5 3 9.9 3 20.5c0 13.7 13.3 24.6 19 30 5.7-5.4 19-16.3 19-30C41 9.9 32.6 1.5 22 1.5Z"/><text class="store-pin-code" x="22" y="21">${code}</text></svg>`;
+        element.onclick = () => selectStore(store);
+        const marker = new maplibre.Marker({ element, anchor: "bottom" }).setLngLat([store.longitude, store.latitude]).addTo(mapRef.current);
+        markersRef.current.set(store.id, { marker, signature });
+      }
+    };
+    void syncMarkers();
+    return () => { cancelled = true; };
   }, [mapReady, selectStore, stores, visibleStoreIds]);
 
   useEffect(() => {

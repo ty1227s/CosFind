@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 500;
+const PAGE_SIZE = 1000;
 
 export async function GET(request: Request) {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

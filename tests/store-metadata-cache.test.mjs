@@ -31,6 +31,6 @@ test("limits one load to two simultaneous batches and returns every store", asyn
   await new Promise(resolve=>setTimeout(resolve,1));running--;
   return Response.json({stores:Object.fromEntries(JSON.parse(options.body).ids.map(id=>[id,{customName:true}]))});
  });
- const result=await load(Array.from({length:450},(_,i)=>String(i)));
- assert.equal(calls,5);assert.equal(peak,2);assert.equal(Object.keys(result.stores).length,450);
+ const result=await load(Array.from({length:1450},(_,i)=>String(i)));
+ assert.equal(calls,3);assert.equal(peak,2);assert.equal(Object.keys(result.stores).length,1450);
 });
