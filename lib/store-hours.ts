@@ -10,6 +10,21 @@ export function getStoreBusinessPeriods(day?:Partial<StoreBusinessDay>):StoreBus
   return day.openingTime||day.closingTime?[{openingTime:day.openingTime||"",closingTime:day.closingTime||""}]:[];
 }
 export function formatStoreBusinessDay(day?:Partial<StoreBusinessDay>){if(day?.closed)return"定休日";const periods=getStoreBusinessPeriods(day);return periods.length?periods.map(period=>formatStoreHoursRange(period.openingTime,period.closingTime)).join(" / "):"未登録"}
+type LabeledStoreBusinessDay=Partial<StoreBusinessDay>&{key:string;label:string};
+function formatGroupedDayLabels(days:readonly LabeledStoreBusinessDay[],positions:number[]){
+  const parts:string[]=[];
+  let start=positions[0];
+  let end=start;
+  const push=()=>{const length=end-start+1;if(length>=3)parts.push(`${days[start].label}〜${days[end].label}`);else for(let index=start;index<=end;index+=1)parts.push(days[index].label)};
+  for(const position of positions.slice(1)){if(position===end+1){end=position;continue}push();start=position;end=position}
+  push();
+  return parts.join("・");
+}
+export function groupStoreBusinessDays<T extends LabeledStoreBusinessDay>(days:readonly T[]){
+  const groups=new Map<string,{day:T;positions:number[]}>();
+  days.forEach((day,index)=>{const signature=formatStoreBusinessDay(day);const existing=groups.get(signature);if(existing)existing.positions.push(index);else groups.set(signature,{day,positions:[index]})});
+  return[...groups.entries()].map(([hours,{day,positions}])=>({...day,key:positions.map(position=>days[position].key).join("-"),label:formatGroupedDayLabels(days,positions),hours}));
+}
 export function formatStoreBusinessHours(hours?:StoreBusinessHours){if(!hours||!Object.keys(hours).length)return"未登録";return STORE_WEEKDAYS.map(({key,label})=>`${label}：${formatStoreBusinessDay(hours[key])}`).join("\n")}
 export function formatTodayStoreBusinessHours(hours?:StoreBusinessHours,now=new Date()){if(!hours||!Object.keys(hours).length)return"未登録";const weekday=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Tokyo",weekday:"short"}).format(now);return formatStoreBusinessDay(hours[STORE_WEEKDAYS[weekdayIndex[weekday]??0].key])}
 export function getStoreOpenStatus(hours?:StoreBusinessHours,now=new Date()){
