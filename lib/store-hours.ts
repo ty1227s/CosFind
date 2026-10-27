@@ -12,6 +12,7 @@ export function getStoreBusinessPeriods(day?:Partial<StoreBusinessDay>):StoreBus
 export function formatStoreBusinessDay(day?:Partial<StoreBusinessDay>){if(day?.closed)return"定休日";const periods=getStoreBusinessPeriods(day);return periods.length?periods.map(period=>formatStoreHoursRange(period.openingTime,period.closingTime)).join(" / "):"未登録"}
 type LabeledStoreBusinessDay=Partial<StoreBusinessDay>&{key:string;label:string};
 function formatGroupedDayLabels(days:readonly LabeledStoreBusinessDay[],positions:number[]){
+  if(positions.length===days.length)return"";
   const parts:string[]=[];
   let start=positions[0];
   let end=start;
