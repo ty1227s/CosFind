@@ -50,6 +50,8 @@ const seedBrands: Brand[] = [...new Set(seedProducts.map((p) => p.brand))].map((
 const seedChains: Chain[] = [...new Set(seedStores.map((s) => s.chain).filter(Boolean))].map((name, index) => ({ id: `c${index + 1}`, name, storeType: seedStores.find((s) => s.chain === name)?.type || STORE_TYPES[0] }));
 
 type CatalogResponse = { ok?: boolean; brands?: Brand[]; chains?: Chain[]; products?: Product[]; stores?: Store[]; stations?: Station[]; railwayLines?: RailwayLine[]; railwayCompanies?: RailwayCompany[]; productRequests?: ProductRegistrationRequest[]; storeRequests?: StoreRegistrationRequest[] };
+export type AdminDirectEditTarget = { entity: "product" | "store"; id: string };
+type AdminManagerProps = { directEdit?: AdminDirectEditTarget; onDirectEditClose?: () => void; onDirectEditSaved?: () => void };
 
 async function readApiJson<T>(response: Response, action: string): Promise<T> {
   const text = await response.text();
@@ -61,7 +63,9 @@ async function readApiJson<T>(response: Response, action: string): Promise<T> {
   }
 }
 
-export function AdminManager() {
+export function AdminManager({ directEdit, onDirectEditClose, onDirectEditSaved }: AdminManagerProps = {}) {
+  const directEditEntity = directEdit?.entity;
+  const directEditId = directEdit?.id;
   const [tab, setTab] = useState<Tab>("brands");
   const [brands, setBrands] = useState<Brand[]>(usesSupabaseCatalog ? [] : seedBrands);
   const [chains, setChains] = useState<Chain[]>(usesSupabaseCatalog ? [] : seedChains);
@@ -97,6 +101,7 @@ export function AdminManager() {
   const [shortcutHelp, setShortcutHelp] = useState(false);
   const [viewing, setViewing] = useState<DetailData | null>(null);
   const [page, setPage] = useState(1);
+  const [directEditError, setDirectEditError] = useState("");
 
   useEffect(() => {
     try {
@@ -131,10 +136,20 @@ export function AdminManager() {
         setRailwayCompanies(remote.railwayCompanies ?? []);
         setProductRequests(remote.productRequests ?? []);
         setStoreRequests(remote.storeRequests ?? []);
+        if (directEditEntity === "product") {
+          const target = remote.products?.find((product) => product.id === directEditId);
+          if (target) setEditingProduct(target);
+          else setDirectEditError("編集する商品情報を取得できませんでした。");
+        }
+        if (directEditEntity === "store") {
+          const target = remote.stores?.find((store) => store.id === directEditId);
+          if (target) setEditingStore(target);
+          else setDirectEditError("編集する店舗情報を取得できませんでした。");
+        }
       })
-      .catch(() => undefined);
+      .catch(() => { if (directEditEntity) setDirectEditError("編集情報の読み込みに失敗しました。"); });
     return () => { active = false; };
-  }, [ready]);
+  }, [ready, directEditEntity, directEditId]);
   useEffect(() => { if (ready && !usesSupabaseCatalog) localStorage.setItem(keys.brands, JSON.stringify(brands)); }, [brands, ready]);
   useEffect(() => { if (ready && !usesSupabaseCatalog) localStorage.setItem(keys.chains, JSON.stringify(chains)); }, [chains, ready]);
   useEffect(() => { if (ready && !usesSupabaseCatalog) localStorage.setItem(keys.products, JSON.stringify(products)); }, [products, ready]);
@@ -260,6 +275,7 @@ export function AdminManager() {
     if (!editingProduct?.id && createdSort === "newest") setPage(1);
     if (approvingRequest?.kind === "product") { if (!(await updateRequestStatus("product", approvingRequest.id, "approved",confirmed))) return; setProductRequests((items) => items.filter((request) => request.id !== approvingRequest.id)); }
     setApprovingRequest(null); setEditingProduct(null);
+    if (directEdit?.entity === "product") onDirectEditSaved?.();
   }
   async function saveStore(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); const id = editingStore?.id || crypto.randomUUID();
@@ -275,6 +291,7 @@ export function AdminManager() {
     if (!editingStore?.id && createdSort === "newest") setPage(1);
     if (approvingRequest?.kind === "store") { if (!(await updateRequestStatus("store", approvingRequest.id, "approved"))) return; setStoreRequests((items) => items.filter((request) => request.id !== approvingRequest.id)); }
     setApprovingRequest(null); setEditingStore(null);
+    if (directEdit?.entity === "store") onDirectEditSaved?.();
   }
   async function saveStation(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -355,7 +372,7 @@ export function AdminManager() {
     if (tab === "railwayLines") setEditingRailwayLine({ name: "", companies: railwayCompanyFilter && railwayCompanyFilter !== "__unassigned__" ? [railwayCompanyFilter] : [], stationNames: [], visualType:"color", imageUrl:"", lineColor:"" });
   }
 
-  return <main className="admin admin-manager">
+  return <main className={`admin admin-manager${directEdit ? " admin-direct-manager" : ""}`}>
     <button type="button" className="shortcut-floating" onClick={() => setShortcutHelp(true)} title="ショートカット一覧（Alt+K）">⌨ <span>ショートカット（Alt+K）</span></button>
     <div className="admin-head"><div><p className="eyebrow">COSFIND DATABASE</p><h1>カタログ管理</h1></div><div className="migration-control"><span className="done">登録・編集・削除はSupabaseへ直接保存されます</span></div></div>
     <div className="admin-tabs"><button className={tab === "brands" ? "active" : ""} onClick={() => setTab("brands")}>ブランド（Alt+1）</button><button className={tab === "chains" ? "active" : ""} onClick={() => setTab("chains")}>チェーン（Alt+2）</button><button className={tab === "products" ? "active" : ""} onClick={() => setTab("products")}>商品・カラー（Alt+3）</button><button className={tab === "stores" ? "active" : ""} onClick={() => setTab("stores")}>店舗（Alt+4）</button><button className={tab === "productRequests" ? "active" : ""} onClick={() => setTab("productRequests")}>商品申請（Alt+5） <b>{productRequests.length}</b></button><button className={tab === "storeRequests" ? "active" : ""} onClick={() => setTab("storeRequests")}>店舗申請（Alt+6） <b>{storeRequests.length}</b></button><button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}>ユーザー（Alt+7）</button><button className={tab === "announcements" ? "active" : ""} onClick={() => setTab("announcements")}>お知らせ（Alt+8）</button><button className={tab === "stations" ? "active" : ""} onClick={() => setTab("stations")}>駅名タグ（Alt+9）</button><button className={tab === "railwayLines" ? "active" : ""} onClick={() => setTab("railwayLines")}>路線（Alt+0）</button></div>
@@ -378,13 +395,14 @@ export function AdminManager() {
     {tab !== "announcements" && <AdminPagination page={currentPage} pageCount={pageCount} total={rowCount} pageSize={ADMIN_PAGE_SIZE} onChange={setPage}/>}
     {editingBrand && <Modal title={editingBrand.id ? "ブランドを編集" : "ブランドを登録"} close={() => setEditingBrand(null)} submit={saveBrand}><div className="form-grid"><Field label="ブランド名"><input name="name" defaultValue={editingBrand.name} required/></Field><Field label="ブランド名（かな）"><input name="nameKana" defaultValue={editingBrand.nameKana}/></Field></div></Modal>}
     {editingChain && <Modal title={editingChain.id ? "チェーンを編集" : "チェーンを登録"} close={() => setEditingChain(null)} submit={saveChain}><div className="form-grid"><Field label="チェーン名"><input name="name" defaultValue={editingChain.name} required/></Field><Field label="店舗種別"><select name="storeType" defaultValue={editingChain.storeType} required>{STORE_TYPES.map((type) => <option key={type}>{type}</option>)}</select></Field></div></Modal>}
-    {editingProduct && <Modal title={approvingRequest?.kind === "product" ? "商品申請を編集して承認" : editingProduct.id ? "商品を編集" : "商品を登録"} close={() => { setApprovingRequest(null); setEditingProduct(null); }} submit={saveProduct}><div className="form-grid"><Field label="ブランド"><select name="brand" defaultValue={editingProduct.brand} required>{!brands.some((brand)=>brand.name===editingProduct.brand)&&<option value={editingProduct.brand}>{editingProduct.brand}</option>}{brands.map((b) => <option key={b.id}>{b.name}</option>)}</select></Field><Field label="商品名"><input name="name" defaultValue={editingProduct.name} required/></Field><ProductCategoryEditor primaryCategory={editingProduct.category} additionalCategories={editingProduct.additionalCategories??[]}/><ProductJanEditor primaryJanCode={editingProduct.janCode} additionalJanCodes={editingProduct.additionalJanCodes??[]}/><Field label="発売日"><input name="releaseDate" type="date" defaultValue={editingProduct.releaseDate||""}/></Field><Field label="SPF（数値のみ）"><input name="spf" type="number" min="0" step="1" defaultValue={editingProduct.spf??""}/></Field><Field label="PA"><select name="pa" defaultValue={editingProduct.pa||""}><option value="">未設定</option><option value="+">+</option><option value="++">++</option><option value="+++">+++</option><option value="++++">++++</option></select></Field></div><ProductVariantsEditor variants={editingProduct.variants}/><ProductMediaEditor mentions={editingProduct.mediaMentions??[]}/></Modal>}
-    {editingStore && <Modal title={approvingRequest?.kind === "store" ? "店舗申請を編集して承認" : editingStore.id ? "店舗を編集" : "店舗を登録"} close={() => { setApprovingRequest(null); setEditingStore(null); }} submit={saveStore}><StoreEditorFields store={editingStore} chains={chains} brands={brands} stations={stations}/><div className="form-grid store-operating-period"><Field label="開店日（この日から公開）"><input name="openingDate" type="date" defaultValue={editingStore.openingDate||""}/></Field><Field label="閉店日（この日から非公開）"><input name="closingDate" type="date" defaultValue={editingStore.closingDate||""}/></Field></div></Modal>}
+    {editingProduct && <Modal title={approvingRequest?.kind === "product" ? "商品申請を編集して承認" : editingProduct.id ? "商品を編集" : "商品を登録"} close={() => { setApprovingRequest(null); setEditingProduct(null); if (directEdit?.entity === "product") onDirectEditClose?.(); }} submit={saveProduct}><div className="form-grid"><Field label="ブランド"><select name="brand" defaultValue={editingProduct.brand} required>{!brands.some((brand)=>brand.name===editingProduct.brand)&&<option value={editingProduct.brand}>{editingProduct.brand}</option>}{brands.map((b) => <option key={b.id}>{b.name}</option>)}</select></Field><Field label="商品名"><input name="name" defaultValue={editingProduct.name} required/></Field><ProductCategoryEditor primaryCategory={editingProduct.category} additionalCategories={editingProduct.additionalCategories??[]}/><ProductJanEditor primaryJanCode={editingProduct.janCode} additionalJanCodes={editingProduct.additionalJanCodes??[]}/><Field label="発売日"><input name="releaseDate" type="date" defaultValue={editingProduct.releaseDate||""}/></Field><Field label="SPF（数値のみ）"><input name="spf" type="number" min="0" step="1" defaultValue={editingProduct.spf??""}/></Field><Field label="PA"><select name="pa" defaultValue={editingProduct.pa||""}><option value="">未設定</option><option value="+">+</option><option value="++">++</option><option value="+++">+++</option><option value="++++">++++</option></select></Field></div><ProductVariantsEditor variants={editingProduct.variants}/><ProductMediaEditor mentions={editingProduct.mediaMentions??[]}/></Modal>}
+    {editingStore && <Modal title={approvingRequest?.kind === "store" ? "店舗申請を編集して承認" : editingStore.id ? "店舗を編集" : "店舗を登録"} close={() => { setApprovingRequest(null); setEditingStore(null); if (directEdit?.entity === "store") onDirectEditClose?.(); }} submit={saveStore}><StoreEditorFields store={editingStore} chains={chains} brands={brands} stations={stations}/><div className="form-grid store-operating-period"><Field label="開店日（この日から公開）"><input name="openingDate" type="date" defaultValue={editingStore.openingDate||""}/></Field><Field label="閉店日（この日から非公開）"><input name="closingDate" type="date" defaultValue={editingStore.closingDate||""}/></Field></div></Modal>}
     {editingStation && <Modal title={editingStation.name ? "駅名タグを編集" : "駅名タグを登録"} close={() => setEditingStation(null)} submit={saveStation}><div className="form-grid"><Field label="駅名"><input name="name" defaultValue={editingStation.name} placeholder="例：新宿駅" required/></Field></div><StationLocationEditor initialPrefecture={editingStation.prefecture} initialMunicipality={editingStation.municipality}/><LineTagEditor initialNames={editingStation.lineNames} suggestions={railwayLines.map((line)=>line.name)}/></Modal>}
     {editingRailwayLine && <Modal title={editingRailwayLine.name ? "路線を編集" : "路線を登録"} close={() => setEditingRailwayLine(null)} submit={saveRailwayLine}><div className="form-grid"><Field label="路線名"><input name="name" defaultValue={editingRailwayLine.name} placeholder="例：JR山手線" required/></Field></div><RailwayCompanyEditor initialNames={editingRailwayLine.companies} suggestions={railwayCompanyNames}/><RailwayLineVisualEditor initialType={editingRailwayLine.visualType} initialImageUrl={editingRailwayLine.imageUrl} initialLineColor={editingRailwayLine.lineColor}/><RailwayStationOrderEditor stationNames={stations.map((station)=>station.name)} initialNames={editingRailwayLine.stationNames}/></Modal>}
     {editingRailwayCompany && <Modal title="鉄道会社の地域分類を編集" close={() => setEditingRailwayCompany(null)} submit={saveRailwayCompany}><div className="form-grid"><Field label="鉄道会社"><select name="name" value={editingRailwayCompany.name} onChange={(event)=>{const company=railwayCompanies.find((item)=>item.name===event.target.value);setEditingRailwayCompany({name:event.target.value,regions:company?.regions??[]})}} required>{railwayCompanyNames.map((company)=><option key={company} value={company}>{company}</option>)}</select></Field></div><RailwayRegionEditor key={editingRailwayCompany.name} initialRegions={editingRailwayCompany.regions}/></Modal>}
     {viewing && <DetailModal data={viewing} close={() => setViewing(null)}/>}
     {shortcutHelp && <ShortcutHelp close={() => setShortcutHelp(false)}/>}
+    {directEdit && !editingProduct && !editingStore && <div className="admin-modal admin-direct-loading" role="dialog" aria-modal="true" aria-label="編集情報を読み込み中"><section><button type="button" className="modal-close shortcut-close" onClick={onDirectEditClose}>×（Esc）</button>{directEditError ? <><h2>編集画面を開けませんでした</h2><p className="form-error">{directEditError}</p></> : <><div className="loading-spinner" aria-hidden="true"/><h2>編集情報を読み込み中…</h2></>}</section></div>}
   </main>;
 }
 

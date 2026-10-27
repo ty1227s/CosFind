@@ -269,6 +269,7 @@ html,body,button,input,select,textarea{font-family:"a-otf-ud-shin-go-pr6n","Hira
 @media(max-width:700px){.map-store-filters{margin:8px 16px 0}.map-store-filters label{padding:9px 11px}.map-store-filters small{display:none}}
 
 .admin-modal form:has(.variant-table-editor){width:min(960px,100%)}
+.admin-public-edit-button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #765464;border-radius:11px;background:#765464;color:#fff;padding:10px 14px;font-weight:800;cursor:pointer;transition:opacity 1s ease}.admin-public-edit-button:hover{opacity:.72}.admin-direct-manager{min-height:0;padding:0}.admin-direct-manager>:not(.admin-modal){display:none}.admin-direct-loading>section{position:relative;display:flex;width:min(440px,100%);min-height:190px;flex-direction:column;align-items:center;justify-content:center;border-radius:20px;background:#fff;padding:32px;box-shadow:0 25px 80px #0005;text-align:center}.admin-direct-loading h2{margin:18px 0 0}.admin-direct-loading .form-error{margin-top:4px}.admin-direct-loading .loading-spinner{width:38px;height:38px;border:4px solid #f0dce6;border-top-color:var(--pink);border-radius:50%;animation:loading-spin .8s linear infinite}@keyframes loading-spin{to{transform:rotate(360deg)}}
 .variant-table-editor{min-width:0;margin:5px 0 20px;border:1px solid #e5d9df;border-radius:14px;padding:14px;background:#fcfafb}
 .variant-table-editor legend{padding:0 7px;color:var(--ink);font-size:13px;font-weight:800}
 .variant-reorder-help{margin:0 0 9px;color:var(--muted);font-size:11px}

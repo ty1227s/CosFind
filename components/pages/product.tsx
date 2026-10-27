@@ -5,6 +5,7 @@ import {formatVariantName} from "@/lib/variant-name";
 import {ProductDetailMap} from "@/components/product-detail-map";
 import {ProductCategoryBadges} from "@/components/product-category-badge";
 import {AuthenticatedOnly} from "@/components/authenticated-only";
+import {AdminDirectEditButton} from "@/components/admin-direct-edit-button";
 import type {loadPage} from "@/lib/server/mobile-pages/product";
 import {PRODUCT_MEDIA_TYPE_LABELS,formatProductMediaDate} from "@/lib/product-media";
 import {publicSiteOrigin} from "@/lib/area-links";
@@ -18,7 +19,7 @@ return <><SiteHeader/><main className="detail">
   <ProductCategoryBadges categories={categories} className="detail-product-categories"/>
   <h1>{product.name}</h1>
   <p className="lead">{brand&&<Link className="product-brand-link" href={`/brands/detail/${brand.id}`}>{brand.name}</Link>}{brand&&productMeta&&" ・ "}{productMeta}</p>
-  <FavoriteButton kind="product" id={product.id}/>
+  <div className="detail-primary-actions"><FavoriteButton kind="product" id={product.id}/><AdminDirectEditButton entity="product" id={product.id}/></div>
   <section><h2>カラー / 色番 / バリエーション</h2><div className="variant-grid">{product.product_variants.map((variant) => <div key={variant.id}><b>{formatVariantName({ name: variant.variant_name, colorCode: variant.color_code ?? "" })}</b><small>色番 {variant.color_code || "—"}{variant.jan_code ? ` ・ JAN ${variant.jan_code}` : ""}</small>{variant.release_date&&<small className="variant-release-date">発売日 {new Date(`${variant.release_date}T00:00:00`).toLocaleDateString("ja-JP")}</small>}</div>)}</div></section>
   {mediaMentions.length>0&&<section className="product-media-section"><h2>メディア掲載情報</h2><div className="product-media-list">{mediaMentions.map(mention=>{const content=<><span className={`product-media-type media-${mention.mediaType}`}>{PRODUCT_MEDIA_TYPE_LABELS[mention.mediaType]}</span><span className="product-media-copy"><b>{mention.title||mention.sourceName}</b>{mention.title&&<small>{mention.sourceName}</small>}<small>{formatProductMediaDate(mention.publishedOn)}{mention.note?` ・ ${mention.note}`:""}</small></span>{mention.url&&<span className="product-media-open" aria-hidden="true">↗</span>}</>;return mention.url?<a key={mention.id} href={mention.url} target="_blank" rel="noopener noreferrer" aria-label={`${mention.sourceName}の掲載情報を開く`}>{content}</a>:<div key={mention.id}>{content}</div>})}</div></section>}
   <section><h2>この商品、どこで見つかった？</h2><ProductDetailMap stores={mapStores} productId={product.id}/><div className="product-report-cta"><strong>「あったよ！」も「なかった」も、最新の状況を教えてね！</strong><AuthenticatedOnly><Link href={`/report?product=${encodeURIComponent(product.id)}`}>この商品の在庫状況を報告</Link></AuthenticatedOnly></div></section>
