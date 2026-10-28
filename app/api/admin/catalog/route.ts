@@ -278,7 +278,58 @@ export async function DELETE(request: Request) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "不正なリクエストです" }, { status: 403 });
   if (!(await authorized())) return NextResponse.json({ error: "管理者認証が必要です" }, { status: 401 });
   try {
-    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store | RailwayCompany }; const db = createSupabaseAdminClient(); let result;
+    const body = await request.json() as { entity: Entity; data: Brand | Chain | Product | Store | Station | RailwayCompany };
+    const db = createSupabaseAdminClient();
+    let result;
+    if (body.entity === "station") {
+      const stationNameRaw = (body.data as Station).name.replace(/[\s　]+/g, " ").trim().slice(0, 50);
+      if (!stationNameRaw) return NextResponse.json({ error: "削除する駅名タグを確認できませんでした" }, { status: 400 });
+      const stationName = stationNameRaw.endsWith("駅") ? stationNameRaw : `${stationNameRaw}駅`;
+
+      const authUser = await getAuthenticatedUser();
+      let ownerId = authUser?.id ?? "";
+      if (!ownerId) {
+        const fallback = await db.from("profiles").select("id").order("created_at", { ascending: true }).limit(1).maybeSingle();
+        if (fallback.error || !fallback.data) throw fallback.error || new Error("駅名タグを削除できるプロフィールがありません");
+        ownerId = fallback.data.id;
+      }
+
+      const metadataRows = await readLatestCatalogMetadata(db, ["store_provisional_brands", "railway_line_directory"], true);
+      const latestMetadataByEntity = new Map<string, (typeof metadataRows)[number]>();
+      for (const item of metadataRows) {
+        const payload = item.payload && typeof item.payload === "object" && !Array.isArray(item.payload) ? item.payload as Record<string, unknown> : {};
+        const entityKey = typeof payload.storeId === "string"
+          ? `store:${payload.storeId}`
+          : typeof payload.lineName === "string"
+            ? `line:${payload.lineName}`
+            : "";
+        if (entityKey) latestMetadataByEntity.set(entityKey, item);
+      }
+      const latestMetadataRows = [...latestMetadataByEntity.values()];
+      const linkedStoreIds = latestMetadataRows.flatMap((item) => {
+        const payload = item.payload && typeof item.payload === "object" && !Array.isArray(item.payload) ? item.payload as Record<string, unknown> : {};
+        return typeof payload.storeId === "string" && Array.isArray(payload.stationNames) && payload.stationNames.includes(stationName)
+          ? [payload.storeId]
+          : [];
+      });
+      if (linkedStoreIds.length) {
+        const linkedStores = await db.from("stores").select("id", { count: "exact", head: true }).in("id", linkedStoreIds).eq("is_active", true);
+        if (linkedStores.error) throw linkedStores.error;
+        if ((linkedStores.count ?? 0) > 0) {
+          return NextResponse.json({ error: `この駅名タグは${linkedStores.count}店舗で使用中です。先に店舗の駅名タグを変更してください。` }, { status: 409 });
+        }
+      }
+
+      const replacements: { user_id: string; status: "metadata"; payload: Record<string, unknown> }[] = latestMetadataRows.flatMap((item) => {
+        const payload = item.payload && typeof item.payload === "object" && !Array.isArray(item.payload) ? item.payload as Record<string, unknown> : {};
+        if (payload.isActive === false || payload.metadataType !== "railway_line_directory" || typeof payload.lineName !== "string" || !Array.isArray(payload.stationNames) || !payload.stationNames.includes(stationName)) return [];
+        return [{ user_id: item.user_id ?? ownerId, status: "metadata" as const, payload: { ...payload, stationNames: payload.stationNames.filter((name) => name !== stationName) } }];
+      });
+      replacements.push({ user_id: ownerId, status: "metadata", payload: { metadataType: "station_directory", stationName, prefecture: "", municipality: "", lineNames: [], isActive: false } });
+      const retired = await db.from("store_requests").insert(replacements);
+      if (retired.error) throw retired.error;
+      return NextResponse.json({ ok: true, updatedLines: replacements.length - 1 });
+    }
     if (body.entity === "railwayCompany") {
       const companyName=(body.data as RailwayCompany).name.replace(/[\s　]+/g," ").trim().slice(0,80);if(!companyName)return NextResponse.json({error:"削除する鉄道会社を確認できませんでした"},{status:400});
       const authUser=await getAuthenticatedUser();let ownerId=authUser?.id||"";if(!ownerId){const fallback=await db.from("profiles").select("id").order("created_at",{ascending:true}).limit(1).maybeSingle();if(fallback.error||!fallback.data)throw fallback.error||new Error("鉄道会社情報を削除できるプロフィールがありません");ownerId=fallback.data.id}
