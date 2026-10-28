@@ -42,9 +42,13 @@ async function refreshSessionIfNeeded(request: NextRequest): Promise<Session | n
 }
 
 export async function proxy(request: NextRequest) {
+  const hostname = request.nextUrl.hostname.toLowerCase();
+  if (hostname === "cosfind.ty1227s.workers.dev" || hostname === "cosfind.pages.dev") {
+    const canonicalUrl = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, "https://cosfind.app");
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
   const refreshedSession = await refreshSessionIfNeeded(request);
   const nonce = btoa(crypto.randomUUID());
-  const hostname = request.nextUrl.hostname;
   const isLocalDevelopmentHost = hostname === "localhost"
     || hostname === "127.0.0.1"
     || hostname === "10.0.2.2";
