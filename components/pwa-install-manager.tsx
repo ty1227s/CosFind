@@ -11,6 +11,9 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 let pendingPrompt: BeforeInstallPromptEvent | null = null;
+// Keep the PWA plumbing available, but hide Android install promotion until the
+// packaged app is ready to be promoted again.
+const INSTALL_PROMPT_ENABLED = false;
 
 function emitAvailability() {
   window.dispatchEvent(new CustomEvent("cosfind-pwa-availability", { detail: Boolean(pendingPrompt) }));
@@ -34,7 +37,7 @@ export function PwaInstallButton() {
     return () => window.removeEventListener("cosfind-pwa-availability", update);
   }, []);
 
-  if (!available) return null;
+  if (!INSTALL_PROMPT_ENABLED || !available) return null;
   return <button type="button" className="pwa-menu-install" onClick={() => void requestInstall()}>⬇ CosFindをインストール</button>;
 }
 
@@ -85,7 +88,7 @@ export function PwaInstallManager() {
 
   const registrationPage = pathname === "/login" || pathname.startsWith("/admin") || pathname === "/forgot-password" || pathname === "/reset-password";
   const showSignup = sessionState === "guest" && !registrationPage;
-  const showInstall = sessionState === "authenticated" && available;
+  const showInstall = INSTALL_PROMPT_ENABLED && sessionState === "authenticated" && available;
   if ((!showSignup && !showInstall) || dismissed) return null;
   const storageKey = showSignup ? "cosfind-signup-banner-dismissed" : "cosfind-pwa-banner-dismissed";
   return <aside className={`pwa-install-banner${showSignup ? " signup-banner" : ""}`} aria-label={showSignup ? "新規ユーザー登録の案内" : "Androidアプリのインストール案内"}>
