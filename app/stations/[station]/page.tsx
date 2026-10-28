@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const lineText = station.lineNames.length ? `${station.lineNames.join("、")}沿線の` : "";
   const description = `${stationName}周辺で${lineText}コスメ・スキンケアを取り扱う登録店舗${station.stores.length}件を掲載。店舗名、住所、店舗分類、最近の報告情報を確認できます。`;
   const url = `${publicSiteOrigin}${stationHref(stationName)}`;
-  return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, type: "website" } };
+  return { title, description, alternates: { canonical: url }, ...(station.stores.length ? {} : { robots: { index: false, follow: true } }), openGraph: { title, description, url, type: "website" } };
 }
 import {loadPage} from "@/lib/server/mobile-pages/station";
 import {StationView} from "@/components/pages/station";

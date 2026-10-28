@@ -281,10 +281,13 @@ const loadDirectorySitemapEntries = timedCache(async () => {
       for (const name of payload.stationNames) if (typeof name === "string" && name) stationsFromStores.add(name);
     }
   }
-  const stationNames = new Set([...stationStates].filter(([, state]) => state.active).map(([name]) => name));
-  for (const name of stationsFromStores) if (stationStates.get(name)?.active !== false) stationNames.add(name);
-  const lineNames = new Set([...lineStates].filter(([, active]) => active).map(([name]) => name));
-  for (const [stationName, state] of stationStates) if (state.active && stationNames.has(stationName)) for (const lineName of state.lineNames) lineNames.add(lineName);
+  const stationNames = new Set([...stationsFromStores].filter((name) => stationStates.get(name)?.active !== false));
+  const lineNames = new Set<string>();
+  for (const stationName of stationNames) {
+    const state = stationStates.get(stationName);
+    if (!state?.active) continue;
+    for (const lineName of state.lineNames) if (lineStates.get(lineName) !== false) lineNames.add(lineName);
+  }
 
   return {
     areas: [...areaKeys].map((key) => { const [prefecture, municipality] = key.split("\u0000"); return { prefecture, municipality }; }),

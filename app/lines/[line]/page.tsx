@@ -13,7 +13,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `${lineName}の駅一覧 | CosFind`;
   const description = `${lineName}に登録されている${line.stations.length}駅を路線順に掲載しています。駅名から周辺のコスメ・スキンケア取扱店舗を確認できます。`;
   const url = `${publicSiteOrigin}${railwayLineHref(lineName)}`;
-  return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, type: "website", ...(line.visualType==="image"&&line.imageUrl?{images:[line.imageUrl]}:{}) } };
+  const storeCount = line.stations.reduce((total, station) => total + station.stores.length, 0);
+  return { title, description, alternates: { canonical: url }, ...(storeCount ? {} : { robots: { index: false, follow: true } }), openGraph: { title, description, url, type: "website", ...(line.visualType==="image"&&line.imageUrl?{images:[line.imageUrl]}:{}) } };
 }
 import {loadPage} from "@/lib/server/mobile-pages/line";
 import {LineView} from "@/components/pages/line";
