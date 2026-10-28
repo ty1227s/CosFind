@@ -47,6 +47,10 @@ export async function proxy(request: NextRequest) {
     const canonicalUrl = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, "https://cosfind.app");
     return NextResponse.redirect(canonicalUrl, 308);
   }
+  if (request.nextUrl.pathname === "/map") {
+    const canonicalUrl = new URL(`/${request.nextUrl.search}`, request.url);
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
   const refreshedSession = await refreshSessionIfNeeded(request);
   const nonce = btoa(crypto.randomUUID());
   const isLocalDevelopmentHost = hostname === "localhost"
