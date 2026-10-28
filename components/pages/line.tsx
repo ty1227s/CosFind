@@ -15,7 +15,7 @@ return <><SiteHeader/><main className="area-directory-page">
       <p>駅名を選ぶと、その駅周辺に登録されている店舗を詳しく確認できます。</p>
     </header>
     <section className="area-municipality-section" aria-labelledby="line-station-heading"><h2 id="line-station-heading">登録駅</h2>
-      <ol className="railway-station-sequence">{line.stations.map((station)=><li key={station.name}><Link href={stationHref(station.name)}><i className="railway-station-color-dot" style={{backgroundColor:stationMarkerColor}} aria-hidden="true"/><span><b>{station.name}</b><small>（{station.storeCount}）</small></span></Link></li>)}</ol>
+      <ol className="railway-station-sequence">{line.stations.map((station)=><li key={station.name}><Link href={stationHref(station.hrefName)}><i className="railway-station-color-dot" style={{backgroundColor:stationMarkerColor}} aria-hidden="true"/><span><b>{station.name}</b><small>（{station.storeCount}）</small></span></Link></li>)}</ol>
     </section>
   </main></>;
 }

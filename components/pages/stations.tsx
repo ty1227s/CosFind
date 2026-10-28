@@ -14,7 +14,7 @@ return <><SiteHeader/><main className="area-directory-page">
     </header>
     {stations.length ? <section className="area-municipality-section" aria-labelledby="station-heading">
       <h2 id="station-heading">駅名を選択</h2>
-      <div className="area-municipality-grid station-directory-grid">{stations.map((station) => <Link href={stationHref(station.name)} key={station.name}>
+      <div className="area-municipality-grid station-directory-grid">{stations.map((station) => <Link href={stationHref(station.canonicalName)} key={station.canonicalName}>
         <span className="station-directory-name"><b>{station.name}</b>{(station.prefecture||station.municipality)&&<small>{station.prefecture}{station.municipality ? ` ${station.municipality}` : ""}</small>}{station.lineNames.length > 0 && <small>{station.lineNames.join("・")}</small>}</span><span>（{station.storeCount}）</span>
       </Link>)}</div>
       {pageCount>1&&<nav className="directory-pagination" aria-label="駅一覧のページ切り替え">{page>1?<Link href={`/stations?page=${page-1}`}>← 前へ</Link>:<span/>}<b>{page} / {pageCount}</b>{page<pageCount?<Link href={`/stations?page=${page+1}`}>次へ →</Link>:<span/>}</nav>}

@@ -18,7 +18,7 @@ type StoreRow = {
   latitude: number;
   longitude: number;
 };
-type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; municipality?: unknown; lineName?: unknown; lineNames?: unknown; companies?: unknown; company?: unknown; companyName?: unknown; regions?: unknown; visualType?: unknown; imageUrl?: unknown; lineColor?: unknown; isActive?: unknown };
+type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; municipality?: unknown; lineName?: unknown; lineNames?: unknown; pageGroupCanonicalName?: unknown; pageGroupStationNames?: unknown; companies?: unknown; company?: unknown; companyName?: unknown; regions?: unknown; visualType?: unknown; imageUrl?: unknown; lineColor?: unknown; isActive?: unknown };
 
 export type AreaStore = {
   id: string;
@@ -33,7 +33,7 @@ export type AreaStore = {
 };
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
-export type StationDirectory = { name: string; prefecture: string; municipality: string; lineNames: string[]; stores: AreaStore[] };
+export type StationDirectory = { name: string; prefecture: string; municipality: string; lineNames: string[]; stores: AreaStore[]; pageGroupCanonicalName: string; pageGroupStationNames: string[] };
 export type RailwayLineDirectory = { name: string; companies: string[]; visualType: "image" | "color"; imageUrl: string; lineColor: string; stations: StationDirectory[] };
 export type RailwayCompanyDirectory = { name: string; regions: string[]; lineCount: number };
 
@@ -158,14 +158,17 @@ const loadStationDirectory = timedCache(async (): Promise<StationDirectory[]> =>
     getAreaDirectory(),
     getDirectoryMetadataRows(),
   ]);
-  const stationLines = new Map<string, { prefecture: string; municipality: string; lineNames: string[]; isActive: boolean }>();
+  const stationLines = new Map<string, { prefecture: string; municipality: string; lineNames: string[]; pageGroupCanonicalName: string; pageGroupStationNames: string[]; isActive: boolean }>();
   for (const row of metadataRows) {
     const payload = row.payload as MetadataPayload | null;
     if (payload?.metadataType !== "station_directory" || typeof payload.stationName !== "string") continue;
+    const pageGroupStationNames = Array.isArray(payload.pageGroupStationNames) ? payload.pageGroupStationNames.filter((name): name is string => typeof name === "string") : [];
     stationLines.set(payload.stationName, {
       prefecture: typeof payload.prefecture === "string" ? payload.prefecture : "",
       municipality: typeof payload.municipality === "string" ? payload.municipality : "",
       lineNames: Array.isArray(payload.lineNames) ? payload.lineNames.filter((name): name is string => typeof name === "string") : [],
+      pageGroupCanonicalName: typeof payload.pageGroupCanonicalName === "string" ? payload.pageGroupCanonicalName : payload.stationName,
+      pageGroupStationNames: pageGroupStationNames.length ? pageGroupStationNames : [payload.stationName],
       isActive: payload.isActive !== false,
     });
   }
@@ -185,10 +188,40 @@ const loadStationDirectory = timedCache(async (): Promise<StationDirectory[]> =>
   for (const name of stationStores.keys()) stationNames.add(name);
   return [...stationNames]
     .filter((name) => stationLines.get(name)?.isActive !== false)
-    .map((name) => ({ name, prefecture: stationLines.get(name)?.prefecture ?? "", municipality: stationLines.get(name)?.municipality ?? "", lineNames: stationLines.get(name)?.lineNames ?? [], stores: [...(stationStores.get(name)?.values() ?? [])].sort((left, right) => left.name.localeCompare(right.name, "ja")) }))
+    .map((name) => ({ name, prefecture: stationLines.get(name)?.prefecture ?? "", municipality: stationLines.get(name)?.municipality ?? "", lineNames: stationLines.get(name)?.lineNames ?? [], stores: [...(stationStores.get(name)?.values() ?? [])].sort((left, right) => left.name.localeCompare(right.name, "ja")), pageGroupCanonicalName: stationLines.get(name)?.pageGroupCanonicalName ?? name, pageGroupStationNames: stationLines.get(name)?.pageGroupStationNames ?? [name] }))
     .sort((left, right) => left.name.localeCompare(right.name, "ja"));
 });
 export const getStationDirectory = cache(loadStationDirectory);
+
+export function stationPageDisplayName(stationNames: string[]) {
+  const names = [...new Set(stationNames.filter(Boolean))];
+  if (names.length < 2) return names[0] ?? "";
+  return `${names.map((name) => name.endsWith("駅") ? name.slice(0, -1) : name).join("・")}駅`;
+}
+
+export function resolveStationPage(directory: StationDirectory[], stationName: string) {
+  const requested = directory.find((station) => station.name === stationName);
+  if (!requested) return null;
+  const memberNames = requested.pageGroupStationNames.length > 1 ? requested.pageGroupStationNames : [requested.name];
+  const members = memberNames.map((name) => directory.find((station) => station.name === name)).filter((station): station is StationDirectory => Boolean(station));
+  const canonicalName = members.some((station) => station.name === requested.pageGroupCanonicalName) ? requested.pageGroupCanonicalName : members[0]?.name ?? requested.name;
+  const stores = new Map<string, AreaStore>();
+  for (const member of members) for (const store of member.stores) stores.set(store.id, store);
+  const canonical = members.find((station) => station.name === canonicalName) ?? requested;
+  return {
+    requestedName: stationName,
+    canonicalName,
+    displayName: stationPageDisplayName(members.map((station) => station.name)),
+    memberNames: members.map((station) => station.name),
+    station: {
+      ...canonical,
+      lineNames: [...new Set(members.flatMap((station) => station.lineNames))],
+      stores: [...stores.values()].sort((left, right) => left.name.localeCompare(right.name, "ja")),
+      pageGroupCanonicalName: canonicalName,
+      pageGroupStationNames: members.map((station) => station.name),
+    },
+  };
+}
 
 const loadRailwayLineDirectory = timedCache(async (): Promise<RailwayLineDirectory[]> => {
   const stationsPromise = getStationDirectory();
@@ -268,20 +301,20 @@ const loadDirectorySitemapEntries = timedCache(async () => {
     if (area) areaKeys.add(`${area.prefecture}\u0000${area.municipality}`);
   }
 
-  const stationStates = new Map<string, { active: boolean; lineNames: string[] }>();
+  const stationStates = new Map<string, { active: boolean; lineNames: string[]; pageGroupCanonicalName: string }>();
   const stationsFromStores = new Set<string>();
   const lineStates = new Map<string, boolean>();
   for (const row of metadataRows) {
     const payload = row.payload as MetadataPayload | null;
     if (payload?.metadataType === "station_directory" && typeof payload.stationName === "string") {
-      stationStates.set(payload.stationName, { active: payload.isActive !== false, lineNames: Array.isArray(payload.lineNames) ? payload.lineNames.filter((name): name is string => typeof name === "string") : [] });
+      stationStates.set(payload.stationName, { active: payload.isActive !== false, lineNames: Array.isArray(payload.lineNames) ? payload.lineNames.filter((name): name is string => typeof name === "string") : [], pageGroupCanonicalName: typeof payload.pageGroupCanonicalName === "string" ? payload.pageGroupCanonicalName : payload.stationName });
     } else if (payload?.metadataType === "railway_line_directory" && typeof payload.lineName === "string") {
       lineStates.set(payload.lineName, payload.isActive !== false);
     } else if (typeof payload?.storeId === "string" && Array.isArray(payload.stationNames)) {
       for (const name of payload.stationNames) if (typeof name === "string" && name) stationsFromStores.add(name);
     }
   }
-  const stationNames = new Set([...stationsFromStores].filter((name) => stationStates.get(name)?.active !== false));
+  const stationNames = new Set([...stationsFromStores].filter((name) => stationStates.get(name)?.active !== false).map((name) => stationStates.get(name)?.pageGroupCanonicalName || name));
   const lineNames = new Set<string>();
   for (const stationName of stationNames) {
     const state = stationStates.get(stationName);

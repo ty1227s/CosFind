@@ -15,7 +15,9 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ station?: string }> }) {
-  const station = (await searchParams).station?.trim() || "";
-  return <CosFindApp initialStation={station} />;
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ station?: string; stations?: string }> }) {
+  const params = await searchParams;
+  const station = params.station?.trim() || "";
+  const stations = [...new Set((params.stations || station).split("|").map((name) => name.trim()).filter(Boolean))].slice(0, 8);
+  return <CosFindApp initialStation={station} initialStations={stations} />;
 }
