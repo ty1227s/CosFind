@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
 import { CosFindApp } from "@/components/cosfind-app";
 import { publicSiteOrigin } from "@/lib/area-links";
 
@@ -19,5 +20,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const station = params.station?.trim() || "";
   const stations = [...new Set((params.stations || station).split("|").map((name) => name.trim()).filter(Boolean))].slice(0, 8);
+  if (station || stations.length) {
+    const target = new URLSearchParams();
+    if (station) target.set("station", station);
+    if (stations.length) target.set("stations", stations.join("|"));
+    permanentRedirect(`/map?${target.toString()}`);
+  }
   return <CosFindApp initialStation={station} initialStations={stations} />;
 }

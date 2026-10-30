@@ -16,7 +16,8 @@ type ProductSeoRow = {
 };
 type BrandSeoRow = { id: string; name: string; name_kana: string | null };
 type BrandProductRow = { id: string; name: string; category: string; additional_categories: string[] | null };
-type SitemapPage = { products: { id: string }[]; brands: string[] };
+type SitemapItem = { id: string; createdAt: string };
+type SitemapPage = { products: SitemapItem[]; brands: SitemapItem[] };
 
 export const getProductSeoData = cache(async (id: string) => {
   const db = createSupabaseAdminClient();
@@ -66,14 +67,14 @@ async function loadCatalogSitemapPage(page: number, pageSize: number, includeBra
   const db = createSupabaseAdminClient();
   const offset = page * pageSize;
   const [productsResult, brandsResult] = await Promise.all([
-    db.from("products").select("id").eq("is_active", true).order("id").range(offset, offset + pageSize - 1),
-    includeBrands ? db.from("brands").select("id").order("id") : Promise.resolve({ data: [], error: null }),
+    db.from("products").select("id,created_at").eq("is_active", true).order("id").range(offset, offset + pageSize - 1),
+    includeBrands ? db.from("brands").select("id,created_at").order("id") : Promise.resolve({ data: [], error: null }),
   ]);
   if (productsResult.error) throw new Error(`商品サイトマップ情報の取得に失敗しました: ${productsResult.error.message}`);
   if (brandsResult.error) throw new Error(`ブランドサイトマップ情報の取得に失敗しました: ${brandsResult.error.message}`);
   return {
-    products: (productsResult.data ?? []).map((row) => ({ id: row.id })),
-    brands: (brandsResult.data ?? []).map((row) => row.id),
+    products: (productsResult.data ?? []).map((row) => ({ id: row.id, createdAt: row.created_at })),
+    brands: (brandsResult.data ?? []).map((row) => ({ id: row.id, createdAt: row.created_at })),
   };
 }
 export const getCatalogSitemapPage = cache(async (page: number, pageSize: number, includeBrands = false) => {

@@ -1,5 +1,5 @@
 import { areaHref, getDirectorySitemapEntries, publicSiteOrigin, railwayLineHref, stationHref } from "@/lib/area-directory";
-import { DIRECTORY_SITEMAP_PAGES, PRODUCT_SITEMAP_PAGE_SIZE, PRODUCT_SITEMAP_PAGES, SITEMAP_CHUNK_COUNT } from "@/lib/sitemap-config";
+import { DIRECTORY_SITEMAP_PAGES, PRODUCT_SITEMAP_PAGE_SIZE, SITEMAP_CHUNK_COUNT } from "@/lib/sitemap-config";
 import { getCatalogSitemapPage } from "@/lib/server/catalog-seo";
 import { renderSitemap, sitemapHeaders, type SitemapEntry } from "@/lib/server/sitemap-xml";
 
@@ -14,7 +14,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   let entries: SitemapEntry[];
   if (sitemapId >= DIRECTORY_SITEMAP_PAGES) {
     const catalog = await getCatalogSitemapPage(sitemapId - DIRECTORY_SITEMAP_PAGES, PRODUCT_SITEMAP_PAGE_SIZE);
-    entries = catalog.products.map((product) => ({ url: `${publicSiteOrigin}/products/${encodeURIComponent(product.id)}`, changeFrequency: "weekly", priority: .8 }));
+    entries = catalog.products.map((product) => ({ url: `${publicSiteOrigin}/products/${encodeURIComponent(product.id)}`, lastModified: product.createdAt, changeFrequency: "weekly", priority: .8 }));
   } else {
     const directory = await getDirectorySitemapEntries();
     const prefectures = directory ? [...new Set(directory.areas.map((area) => area.prefecture))] : [];
@@ -26,10 +26,10 @@ export async function GET(_request: Request, { params }: RouteContext) {
     ];
     else if (sitemapId === 1 && directory) entries = directory.stationNames.map((name): SitemapEntry => ({ url: `${publicSiteOrigin}${stationHref(name)}`, changeFrequency: "weekly", priority: .7 }));
     else if (sitemapId === 2 && directory) entries = directory.lineNames.map((name): SitemapEntry => ({ url: `${publicSiteOrigin}${railwayLineHref(name)}`, changeFrequency: "weekly", priority: .7 }));
-    else if (sitemapId === 3 && directory) entries = directory.storeIds.map((id): SitemapEntry => ({ url: `${publicSiteOrigin}/stores/${encodeURIComponent(id)}`, changeFrequency: "weekly", priority: .6 }));
+    else if (sitemapId === 3 && directory) entries = directory.stores.map((store): SitemapEntry => ({ url: `${publicSiteOrigin}/stores/${encodeURIComponent(store.id)}`, lastModified: store.createdAt, changeFrequency: "weekly", priority: .6 }));
     else {
       const catalog = await getCatalogSitemapPage(0, 1, true);
-      entries = catalog.brands.map((id): SitemapEntry => ({ url: `${publicSiteOrigin}/brands/detail/${encodeURIComponent(id)}`, changeFrequency: "weekly", priority: .7 }));
+      entries = catalog.brands.map((brand): SitemapEntry => ({ url: `${publicSiteOrigin}/brands/detail/${encodeURIComponent(brand.id)}`, lastModified: brand.createdAt, changeFrequency: "weekly", priority: .7 }));
     }
   }
   return new Response(renderSitemap(entries), { headers: sitemapHeaders });

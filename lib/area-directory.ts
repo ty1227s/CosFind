@@ -17,6 +17,7 @@ type StoreRow = {
   address: string;
   latitude: number;
   longitude: number;
+  created_at: string;
 };
 type MetadataPayload = { metadataType?: unknown; storeId?: unknown; customName?: unknown; stationNames?: unknown; stationName?: unknown; prefecture?: unknown; municipality?: unknown; lineName?: unknown; lineNames?: unknown; pageGroupCanonicalName?: unknown; pageGroupStationNames?: unknown; companies?: unknown; company?: unknown; companyName?: unknown; regions?: unknown; visualType?: unknown; imageUrl?: unknown; lineColor?: unknown; isActive?: unknown };
 
@@ -30,6 +31,7 @@ export type AreaStore = {
   longitude: number;
   customName: boolean;
   stationNames: string[];
+  createdAt: string;
 };
 export type MunicipalityDirectory = { name: string; stores: AreaStore[] };
 export type PrefectureDirectory = { name: string; municipalities: MunicipalityDirectory[]; storeCount: number };
@@ -86,7 +88,7 @@ const loadAreaDirectory = timedCache(async (): Promise<PrefectureDirectory[]> =>
     fetchAllSupabaseRows<StoreRow>((from,to)=>operatingPeriodQuery(
       db
         .from("stores")
-        .select("id,name,chain_name,store_type,address,latitude,longitude")
+        .select("id,name,chain_name,store_type,address,latitude,longitude,created_at")
         .eq("is_active", true),
     ).order("id").range(from,to)),
     getDirectoryMetadataRows(),
@@ -121,6 +123,7 @@ const loadAreaDirectory = timedCache(async (): Promise<PrefectureDirectory[]> =>
       longitude: row.longitude,
       customName: customNames.get(row.id) === true,
       stationNames: stationNames.get(row.id) ?? [],
+      createdAt: row.created_at,
     });
     prefectureGroup.set(area.municipality, municipalityGroup);
     groups.set(area.prefecture, prefectureGroup);
@@ -289,14 +292,14 @@ export const getRailwayCompanyDirectory = cache(loadRailwayCompanyDirectory);
 const loadDirectorySitemapEntries = timedCache(async () => {
   const db = createSupabaseAdminClient();
   const [storeRows, metadataRows] = await Promise.all([
-    fetchAllSupabaseRows<Pick<StoreRow,"id"|"address">>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,address").eq("is_active", true)).order("id").range(from,to)),
+    fetchAllSupabaseRows<Pick<StoreRow,"id"|"address"|"created_at">>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,address,created_at").eq("is_active", true)).order("id").range(from,to)),
     getDirectoryMetadataRows(),
   ]);
 
   const areaKeys = new Set<string>();
-  const storeIds: string[] = [];
+  const stores: { id: string; createdAt: string }[] = [];
   for (const store of storeRows) {
-    storeIds.push(store.id);
+    stores.push({ id: store.id, createdAt: store.created_at });
     const area = identifyArea(store.address || "");
     if (area) areaKeys.add(`${area.prefecture}\u0000${area.municipality}`);
   }
@@ -324,7 +327,7 @@ const loadDirectorySitemapEntries = timedCache(async () => {
 
   return {
     areas: [...areaKeys].map((key) => { const [prefecture, municipality] = key.split("\u0000"); return { prefecture, municipality }; }),
-    storeIds,
+    stores,
     stationNames: [...stationNames],
     lineNames: [...lineNames],
   };

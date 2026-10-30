@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type Session } from "@supabase/supabase-js";
 
+const PUBLIC_HOST = "cosfind.app";
+const PUBLIC_HOSTS = new Set([PUBLIC_HOST, `www.${PUBLIC_HOST}`]);
 const ACCESS_COOKIE = "sb-access-token";
 const REFRESH_COOKIE = "sb-refresh-token";
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
@@ -42,20 +44,45 @@ async function refreshSessionIfNeeded(request: NextRequest): Promise<Session | n
 }
 
 export async function proxy(request: NextRequest) {
-  const hostname = request.nextUrl.hostname.toLowerCase();
-  if (hostname === "cosfind.ty1227s.workers.dev" || hostname === "cosfind.pages.dev") {
-    const canonicalUrl = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, "https://cosfind.app");
+  const requestHost = (request.headers.get("host") ?? request.nextUrl.hostname)
+    .split(":", 1)[0]
+    .toLowerCase();
+  const forwardedProtocol = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",", 1)[0]
+    .trim()
+    .toLowerCase();
+  const isPublicHost = PUBLIC_HOSTS.has(requestHost);
+  const isHttp = forwardedProtocol === "http" || request.nextUrl.protocol === "http:";
+  const isAlternateHost = requestHost === `www.${PUBLIC_HOST}`;
+
+  if (requestHost === "cosfind.ty1227s.workers.dev" || requestHost === "cosfind.pages.dev") {
+    const canonicalUrl = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, `https://${PUBLIC_HOST}`);
+    if (canonicalUrl.pathname === "/" && (canonicalUrl.searchParams.has("station") || canonicalUrl.searchParams.has("stations"))) {
+      canonicalUrl.pathname = "/map";
+    }
     return NextResponse.redirect(canonicalUrl, 308);
   }
-  if (request.nextUrl.pathname === "/map") {
-    const canonicalUrl = new URL(`/${request.nextUrl.search}`, request.url);
+
+  if (isPublicHost && (isHttp || isAlternateHost)) {
+    const canonicalUrl = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, `https://${PUBLIC_HOST}`);
+    if (canonicalUrl.pathname === "/" && (canonicalUrl.searchParams.has("station") || canonicalUrl.searchParams.has("stations"))) {
+      canonicalUrl.pathname = "/map";
+    }
     return NextResponse.redirect(canonicalUrl, 308);
   }
+
+  if (request.nextUrl.pathname === "/" && (request.nextUrl.searchParams.has("station") || request.nextUrl.searchParams.has("stations"))) {
+    const mapUrl = request.nextUrl.clone();
+    mapUrl.pathname = "/map";
+    return NextResponse.redirect(mapUrl, 308);
+  }
+
   const refreshedSession = await refreshSessionIfNeeded(request);
   const nonce = btoa(crypto.randomUUID());
-  const isLocalDevelopmentHost = hostname === "localhost"
-    || hostname === "127.0.0.1"
-    || hostname === "10.0.2.2";
+  const isLocalDevelopmentHost = requestHost === "localhost"
+    || requestHost === "127.0.0.1"
+    || requestHost === "10.0.2.2";
   const supabaseOrigin = (() => {
     try { return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : ""; }
     catch { return ""; }
