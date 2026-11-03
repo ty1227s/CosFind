@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, getUserPoints } from "@/lib/server/current-user";
-import { clientAddress, consumeRateLimit, isSameOrigin } from "@/lib/server/security";
+import { clientAddress, consumeRateLimit, isAuthenticatedAdmin, isSameOrigin } from "@/lib/server/security";
 import { finiteCoordinate, optionalJan, text, UUID_PATTERN } from "@/lib/server/validation";
 import { PRODUCT_CATEGORY_GROUPS } from "@/lib/product-categories";
 import { STORE_TYPES } from "@/lib/store-types";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
+import { isDemoStore } from "@/lib/demo-data";
 
 const PRODUCT_CATEGORIES = new Set<string>(PRODUCT_CATEGORY_GROUPS.flatMap((group) => group.categories));
 const STORE_TYPE_SET = new Set<string>(STORE_TYPES);
@@ -59,8 +60,11 @@ export async function POST(request: Request) {
   const payload = body.kind === "product" ? sanitizeProduct(body.payload as Record<string, unknown>) : body.kind === "store" ? sanitizeStore(body.payload as Record<string, unknown>) : null;
   if (!payload) return NextResponse.json({ error: "申請内容を確認してください" }, { status: 400 });
   if (body.kind === "product" && "reportStoreId" in payload && payload.reportStoreId) {
-    const store = await operatingPeriodQuery(db.from("stores").select("id").eq("id", payload.reportStoreId).eq("is_active", true)).maybeSingle();
-    if (store.error || !store.data) return NextResponse.json({ error: "報告先の店舗を確認できませんでした" }, { status: 400 });
+    const [store,isAdmin] = await Promise.all([
+      operatingPeriodQuery(db.from("stores").select("id,name,address").eq("id", payload.reportStoreId).eq("is_active", true)).maybeSingle(),
+      isAuthenticatedAdmin(),
+    ]);
+    if (store.error || !store.data || (!isAdmin && isDemoStore(store.data))) return NextResponse.json({ error: "報告先の店舗を確認できませんでした" }, { status: 400 });
   }
   const table = body.kind === "product" ? "product_requests" : "store_requests";
   const saved = await db.from(table).insert({ user_id: user.id, payload, status: "pending" });

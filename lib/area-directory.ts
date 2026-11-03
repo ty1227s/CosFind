@@ -7,6 +7,7 @@ import { isRailwayRegion } from "@/lib/railway-regions";
 import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
 import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 import { normalizeJapaneseAddress, prefectureFromAddress } from "@/lib/japanese-address";
+import { isDemoStore } from "@/lib/demo-data";
 
 type MunicipalitySource = Record<string, string[]>;
 type StoreRow = {
@@ -109,6 +110,7 @@ const loadAreaDirectory = timedCache(async (): Promise<PrefectureDirectory[]> =>
 
   const groups = new Map<string, Map<string, AreaStore[]>>();
   for (const row of storeRows) {
+    if (isDemoStore(row)) continue;
     const area = identifyArea(row.address || "");
     if (!area) continue;
     const prefectureGroup = groups.get(area.prefecture) ?? new Map<string, AreaStore[]>();
@@ -299,6 +301,7 @@ const loadDirectorySitemapEntries = timedCache(async () => {
   const areaKeys = new Set<string>();
   const stores: { id: string; createdAt: string }[] = [];
   for (const store of storeRows) {
+    if (isDemoStore(store)) continue;
     stores.push({ id: store.id, createdAt: store.created_at });
     const area = identifyArea(store.address || "");
     if (area) areaKeys.add(`${area.prefecture}\u0000${area.municipality}`);

@@ -3,6 +3,8 @@ import {createSupabaseAdminClient} from "@/lib/supabase/admin";
 import {formatStoreName} from "@/lib/store-name";
 import {isStorePubliclyVisible} from "@/lib/store-operating-period";
 import {publicSiteOrigin} from "@/lib/area-directory";
+import {isDemoStore} from "@/lib/demo-data";
+import {isAuthenticatedAdmin} from "@/lib/server/security";
 export const dynamic = "force-dynamic";
 type MetadataPayload = { metadataType?:unknown;brandIds?:unknown;brandId?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown };
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -13,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     db.from("store_requests").select("payload,created_at").eq("status","metadata").contains("payload",{storeId:id}).order("created_at",{ascending:false}),
   ]);
   const row=storeResult.data;
-  if(!row||!isStorePubliclyVisible({openingDate:row.opening_date,closingDate:row.closing_date}))return{title:"店舗が見つかりません | CosFind",robots:{index:false,follow:false}};
+  if(!row||!isStorePubliclyVisible({openingDate:row.opening_date,closingDate:row.closing_date})||(isDemoStore(row)&&!(await isAuthenticatedAdmin())))return{title:"店舗が見つかりません | CosFind",robots:{index:false,follow:false}};
   const payloads=(metadataResult.data??[]).map(item=>item.payload as MetadataPayload);
   const customName=payloads.find(payload=>typeof payload.customName==="boolean")?.customName===true;
   const stationNames=payloads.find(payload=>Array.isArray(payload.stationNames))?.stationNames;

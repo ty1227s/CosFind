@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAuthenticatedAdmin } from "@/lib/server/security";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export async function GET(request: Request) {
   url.searchParams.set("offset", String(offset));
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("is_active", "eq.true");
+  const isAdmin = await isAuthenticatedAdmin();
+  if (!isAdmin) url.searchParams.set("name", "not.like.【デモ】*");
   url.searchParams.append("or", `(opening_date.is.null,opening_date.lte.${today})`);
   url.searchParams.append("or", `(closing_date.is.null,closing_date.gte.${today})`);
 
@@ -27,6 +30,11 @@ export async function GET(request: Request) {
   });
   if (!upstream.ok || !upstream.body) return NextResponse.json({ error: "店舗情報を取得できませんでした" }, { status: 502 });
   return new Response(upstream.body, {
-    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, s-maxage=5, stale-while-revalidate=15", "X-CosFind-Page-Size": String(PAGE_SIZE) },
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": isAdmin ? "private, no-store" : "public, s-maxage=5, stale-while-revalidate=15",
+      "Vary": "Cookie",
+      "X-CosFind-Page-Size": String(PAGE_SIZE),
+    },
   });
 }

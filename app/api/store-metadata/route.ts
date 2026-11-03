@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { clientAddress, consumeRateLimit } from "@/lib/server/security";
+import { clientAddress, consumeRateLimit, isAuthenticatedAdmin } from "@/lib/server/security";
 import { UUID_PATTERN } from "@/lib/server/validation";
 import { operatingPeriodQuery } from "@/lib/store-operating-period";
 import { readLatestCatalogMetadata } from "@/lib/server/catalog-metadata";
+import { visibleStoresForViewer } from "@/lib/demo-data";
 
 async function respondWithMetadata(request: Request, candidateIds: unknown[]) {
   const rate = await consumeRateLimit(`store-metadata:${clientAddress(request)}`, 120, 60_000);
@@ -11,9 +12,12 @@ async function respondWithMetadata(request: Request, candidateIds: unknown[]) {
   const ids = candidateIds.filter((id): id is string => typeof id === "string" && UUID_PATTERN.test(id)).slice(0, 1000);
   if (!ids.length) return NextResponse.json({ stores: {} });
   const db=createSupabaseAdminClient();
-  const visibleResult=await operatingPeriodQuery(db.from("stores").select("id").in("id",ids).eq("is_active",true));
+  const [visibleResult,isAdmin]=await Promise.all([
+    operatingPeriodQuery(db.from("stores").select("id,name,address").in("id",ids).eq("is_active",true)),
+    isAuthenticatedAdmin(),
+  ]);
   if(visibleResult.error)return NextResponse.json({error:"店舗情報を取得できませんでした"},{status:500});
-  const requested = new Set((visibleResult.data??[]).map(store=>store.id));
+  const requested = new Set(visibleStoresForViewer(visibleResult.data??[],isAdmin).map(store=>store.id));
   if(!requested.size)return NextResponse.json({stores:{}});
   let metadataRows;
   try { metadataRows=await readLatestCatalogMetadata(db,["store_provisional_brands"],false,[...requested]); }

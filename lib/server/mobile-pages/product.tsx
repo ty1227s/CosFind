@@ -5,6 +5,8 @@ import {type ProductMapStore} from "@/components/product-detail-map";
 import {operatingPeriodQuery} from "@/lib/store-operating-period";
 import {fetchAllSupabaseRows} from "@/lib/supabase-pagination";
 import {isProductMediaType,type ProductMediaMention} from "@/lib/product-media";
+import {visibleStoresForViewer} from "@/lib/demo-data";
+import {isAuthenticatedAdmin} from "@/lib/server/security";
 type ProductRow = { id: string; name: string; category: string; additional_categories:string[]|null; jan_code: string | null; additional_jan_codes:string[]|null; release_date:string|null; spf:number|null; pa:string|null; brands: { id:string;name: string } | { id:string;name: string }[] | null; product_variants: { id: string; variant_name: string; color_code: string | null; jan_code: string | null; release_date:string|null }[] };
 type ReportRow = { store_id: string; reported_at: string; stores: { id: string; name: string; chain_name: string | null; address: string } | null };
 type StoreRow = { id:string;name:string;chain_name:string|null;address:string;latitude:number;longitude:number;opening_date:string|null;closing_date:string|null };
@@ -16,13 +18,15 @@ export async function loadPage({ params }: { params: Promise<{ id: string }> }){
   const productResult = await db.from("products").select("id,name,category,additional_categories,jan_code,additional_jan_codes,release_date,spf,pa,brands(id,name),product_variants(id,variant_name,color_code,jan_code,release_date)").eq("id", id).eq("is_active", true).order("created_at", { referencedTable: "product_variants" }).maybeSingle();
   if (productResult.error || !productResult.data) notFound();
   const product = productResult.data as unknown as ProductRow; const brand = Array.isArray(product.brands) ? product.brands[0] ?? null : product.brands;
-  const [reportsResult, allStores, mapReportsResult, metadataResult, mediaResult] = await Promise.all([
+  const [reportsResult, allStoreRows, mapReportsResult, metadataResult, mediaResult, isAdmin] = await Promise.all([
     db.from("stock_reports").select("store_id,reported_at,stores(id,name,chain_name,address)").eq("product_id", id).eq("status", "available").order("reported_at", { ascending: false }).limit(50),
     fetchAllSupabaseRows<StoreRow>((from,to)=>operatingPeriodQuery(db.from("stores").select("id,name,chain_name,address,latitude,longitude,opening_date,closing_date").eq("is_active", true)).order("name").order("id").range(from,to)),
     db.from("stock_reports").select("store_id,status,reported_at").eq("product_id", id).order("reported_at", { ascending: false }).limit(10000),
     db.from("store_requests").select("payload,created_at").eq("status", "metadata").order("created_at", { ascending: true }),
     db.from("product_media_mentions").select("id,media_type,source_name,title,url,published_on,note").eq("product_id",id).order("published_on",{ascending:false,nullsFirst:false}).order("sort_order").order("id"),
+    isAuthenticatedAdmin(),
   ]);
+  const allStores=visibleStoresForViewer(allStoreRows,isAdmin);
   const visibleStoreIds=new Set(allStores.map(store=>store.id));
   const seen = new Set<string>(); const stores = ((reportsResult.data ?? []) as unknown as ReportRow[]).filter((report) => visibleStoreIds.has(report.store_id)&&report.stores && !seen.has(report.store_id) && seen.add(report.store_id));
   const latestByStore = new Map<string, MapReportRow>();

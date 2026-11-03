@@ -6,6 +6,8 @@ import {type StoreProductItem} from "@/components/store-product-list";
 import {getStoreTypeColor} from "@/lib/store-type-color";
 import {isStorePubliclyVisible} from "@/lib/store-operating-period";
 import {publicSiteOrigin} from "@/lib/area-directory";
+import {isDemoStore} from "@/lib/demo-data";
+import {isAuthenticatedAdmin} from "@/lib/server/security";
 type Store = { id:string;name:string;chain:string;type:string;address:string;latitude:number;longitude:number;openingDate?:string;closingDate?:string;customName?:boolean;stationNames:string[] };
 type ReportRow = { product_id:string;status:"available"|"low_stock"|"sold_out"|"unknown"|"discontinued";reported_at:string;products:{id:string;name:string;category:string;additional_categories:string[]|null;brands:{name:string}|{name:string}[]|null}|null };
 type MetadataPayload = { metadataType?:unknown;brandIds?:unknown;brandId?:unknown;openingTime?:unknown;closingTime?:unknown;businessHours?:unknown;customName?:unknown;stationNames?:unknown };
@@ -17,6 +19,7 @@ export async function loadPage({ params }: { params: Promise<{ id: string }> }){
   for (let attempt=0;storeResult.error&&attempt<2;attempt+=1) { await new Promise(resolve=>setTimeout(resolve,250*(attempt+1)));storeResult=await db.from("stores").select("id,name,chain_name,store_type,address,latitude,longitude,opening_date,closing_date").eq("id",id).eq("is_active",true).maybeSingle(); }
   if (storeResult.error) return { loadError: true as const, id };
   if (!storeResult.data || !isStorePubliclyVisible({openingDate:storeResult.data.opening_date,closingDate:storeResult.data.closing_date})) notFound();
+  if (isDemoStore(storeResult.data) && !(await isAuthenticatedAdmin())) notFound();
   const row=storeResult.data;
   const store:Store={id:row.id,name:row.name,chain:row.chain_name??"",type:row.store_type,address:row.address,latitude:row.latitude,longitude:row.longitude,openingDate:row.opening_date??undefined,closingDate:row.closing_date??undefined,stationNames:[]};
   const metadataResult=await db.from("store_requests").select("payload,created_at").eq("status","metadata").contains("payload",{storeId:id}).order("created_at",{ascending:false});
